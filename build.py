@@ -541,11 +541,13 @@ def build_map(workspace_root: Path, taxonomy: Taxonomy, manifest: dict, exclude=
     for scan in code_scans:
         add_graph_edges(edges, load_graph(scan.root), {path: info[0] for path, info in scan.files.items()})
     add_import_edges(edges, code_scans)
-    add_link_edges(edges, [link for link in taxonomy.links if not {_repo_of(link.source), _repo_of(link.target)} & set(exclude)])
+    repos = [repo_record(scan, entries.get(scan.name, {})) for scan in scans]
+    present = {cap["id"] for repo in repos for cap in repo["capabilities"]}
+    add_link_edges(edges, (link for link in taxonomy.links if link.source in present and link.target in present))
     data = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "tags": list(taxonomy.tags),
-        "repos": [repo_record(scan, entries.get(scan.name, {})) for scan in scans],
+        "repos": repos,
         "edges": edges.as_list(),
     }
     return data, scans

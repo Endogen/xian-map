@@ -309,6 +309,18 @@ class WorkspaceBuildTest(unittest.TestCase):
         self.assertEqual(edges[("app/main", "lib/core", "import")]["examples"], ["app/app/main.py:L1 import libpkg.core"])
         self.assertEqual(edges[("app/main", "chain/rpc", "rpc")]["examples"], ["JSON-RPC"])
 
+    def test_links_only_reference_capabilities_present_in_the_map(self):
+        shutil.rmtree(self.root / "lib")
+        self.taxonomy_raw["repos"]["app"]["capabilities"][1]["paths"] = ["moved/*"]
+        self.taxonomy_raw["links"].extend([
+            {"from": "app/main", "to": "lib/core", "kind": "rpc"},
+            {"from": "app/web", "to": "app/main", "kind": "rpc"},
+        ])
+        data = self.build()
+        ids = {cap["id"] for repo in data["repos"] for cap in repo["capabilities"]}
+        self.assertTrue(all({e["from"], e["to"]} <= ids for e in data["edges"]), data["edges"])
+        self.assertIn(("app/main", "chain/rpc"), [(e["from"], e["to"]) for e in data["edges"]])
+
     def test_repos_list_capabilities_with_languages_and_unmapped_groups(self):
         repos = {repo["name"]: repo for repo in self.build()["repos"]}
         self.assertEqual(list(repos), ["chain", "lib", "app", "misc"])
