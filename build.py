@@ -239,11 +239,12 @@ def python_imports(source: str) -> list[tuple[str, tuple[str, ...], int]]:
     return [(module, names, line) for module, names, line, _ in sorted(found, key=lambda item: item[2:])]
 
 
-def resolve_python_import(module: str, names, index: dict):
-    for name in names:
-        candidate = index.get(f"{module}.{name}")
-        if candidate is not None:
-            return candidate
+def resolve_python_imports(module: str, names, index: dict) -> set:
+    modules = [f"{module}.{name}" for name in names] or [module]
+    return {target for name in modules if (target := _module_target(name, index)) is not None}
+
+
+def _module_target(module: str, index: dict):
     parts = module.split(".")
     for end in range(len(parts), 0, -1):
         candidate = index.get(".".join(parts[:end]))
@@ -411,11 +412,10 @@ def add_import_edges(edges: EdgeSet, scans: list[RepoScan]) -> None:
 def _add_python_imports(edges, scan, path, cap_id, source, modules, by_name) -> None:
     own = modules[scan.name]
     for module, names, line in python_imports(source):
-        if resolve_python_import(module, names, own) is not None:
+        if resolve_python_imports(module, names, own):
             continue
-        target = resolve_python_import(module, names, modules["shared"])
-        if target is not None:
-            target_cap = by_name[target[0]].files[target[1]][0]
+        for repo, target_path in sorted(resolve_python_imports(module, names, modules["shared"])):
+            target_cap = by_name[repo].files[target_path][0]
             edges.add(cap_id, target_cap, "import", f"{scan.name}/{path}:L{line} import {module}")
 
 

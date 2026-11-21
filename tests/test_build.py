@@ -158,11 +158,11 @@ class PythonImportTest(unittest.TestCase):
             "contracting.storage.driver": "src/contracting/storage/driver.py",
             "contracting": "src/contracting/__init__.py",
         }
-        resolve = code_map.resolve_python_import
-        self.assertEqual(resolve("contracting.storage", ("driver",), index), "src/contracting/storage/driver.py")
-        self.assertEqual(resolve("contracting.storage.orm.Thing", (), index), "src/contracting/storage/__init__.py")
-        self.assertEqual(resolve("contracting.missing", (), index), "src/contracting/__init__.py")
-        self.assertIsNone(resolve("requests", (), index))
+        resolve = code_map.resolve_python_imports
+        self.assertEqual(resolve("contracting.storage", ("driver",), index), {"src/contracting/storage/driver.py"})
+        self.assertEqual(resolve("contracting.storage.orm.Thing", (), index), {"src/contracting/storage/__init__.py"})
+        self.assertEqual(resolve("contracting.missing", (), index), {"src/contracting/__init__.py"})
+        self.assertEqual(resolve("requests", (), index), set())
 
 
 class ScriptImportTest(unittest.TestCase):
@@ -309,6 +309,17 @@ class WorkspaceBuildTest(unittest.TestCase):
         )
         self.assertEqual(edges[("app/main", "lib/core", "import")]["examples"], ["app/app/main.py:L1 import libpkg.core"])
         self.assertEqual(edges[("app/main", "chain/rpc", "rpc")]["examples"], ["JSON-RPC"])
+
+    def test_one_python_import_can_link_to_several_capabilities(self):
+        # core is a submodule. The two exported names are defined in the package itself.
+        (self.root / "lib/src/libpkg/__init__.py").write_text("one, two = 1, 2\n")
+        self.taxonomy_raw["repos"]["lib"]["capabilities"].insert(0, {
+            "id": "api", "name": "API", "paths": ["src/libpkg/__init__.py"],
+        })
+        (self.root / "app/app/main.py").write_text("from libpkg import core, one, two\n")
+        imports = {e["to"]: e["weight"] for e in self.build()["edges"]
+                   if e["kind"] == "import" and e["from"] == "app/main"}
+        self.assertEqual(imports, {"lib/core": 1, "lib/api": 1})
 
     def test_links_only_reference_capabilities_present_in_the_map(self):
         shutil.rmtree(self.root / "lib")
