@@ -3,11 +3,17 @@
 #
 # GitHub cannot build the page itself: it needs the sibling repos and their
 # local graphify graphs. So this builds it from the local workspace, leaves out
-# every repo that is not public on GitHub, and force-pushes the page as the only
-# commit of gh-pages (the site needs no history).
+# every repo that is not public on GitHub (except the ones listed in
+# show_private below), and force-pushes the page as the only commit of gh-pages
+# (the site needs no history).
 #
 # Needs: git, python3 and an authenticated `gh`.
 set -euo pipefail
+
+# Private repos the owner chose to show on the public map anyway. Their files,
+# summaries and links appear on the page; the GitHub links only open for people
+# with access to the repo. Any other private repo stays hidden.
+show_private=(xian-bridge)
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 workspace=$(dirname "$repo_root")
@@ -38,7 +44,11 @@ while IFS=$'\t' read -r name remote; do
   if [ -n "$remote" ]; then
     visibility=$(gh repo view "$remote" --json visibility -q .visibility 2>/dev/null) || visibility=UNKNOWN
   fi
-  if [ "$visibility" != "PUBLIC" ]; then
+  if [ "$visibility" = "PUBLIC" ]; then
+    continue
+  elif [[ " ${show_private[*]} " == *" $name "* ]]; then
+    echo "showing $name ($visibility, listed in show_private)"
+  else
     echo "leaving out $name ($visibility)"
     excludes+=(--exclude "$name")
   fi

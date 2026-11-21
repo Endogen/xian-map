@@ -284,10 +284,17 @@ scripts/publish-pages.sh
 ```
 
 The script asks GitHub (via `gh`) which workspace repos are public, builds the
-page **without every repo that is not public** (`--exclude`), and force-pushes
+page **without every repo that is not public** (`--exclude`), except the
+private repos named in `show_private` at the top of the script (currently
+`xian-bridge`), and force-pushes
 it as the only commit of `gh-pages`. Pages serves it at
 https://endogen.github.io/xian-map/ a minute later. It needs `git`, `python3`
 and an authenticated `gh`.
+
+A private repo in `show_private` appears in full: its capabilities, files,
+links and texts. Its GitHub links only open for people with access to it.
+Add a repo there only when its owner wants it public on the map; any other
+private repo, including one that turns private later, stays hidden.
 
 Private repos are only left out of the published page. The local build
 (`python3 build.py`) still shows everything, and `capabilities.json` in this
@@ -407,7 +414,7 @@ xian-map/
 │   ├── layout.js            # tested layout and routing logic
 │   └── vendor/              # React, React Flow, ELK (+ licenses)
 ├── scripts/
-│   └── publish-pages.sh     # build without private repos, push to gh-pages
+│   └── publish-pages.sh     # build without private repos (except show_private), push to gh-pages
 ├── tests/
 │   ├── test_build.py
 │   └── layout.test.cjs

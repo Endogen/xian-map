@@ -17,7 +17,9 @@ needs is in `README.md`; this file only points at the parts that matter most.
   Node layout tests when `node` is installed.
 - `out/` is generated and ignored. Never commit it. The public site is
   published only with `scripts/publish-pages.sh`, which leaves out every repo
-  that is not public on GitHub; never publish a build some other way.
+  that is not public on GitHub, except the repos named in its `show_private`
+  list (the owner chose to show `xian-bridge`); never publish a build some
+  other way, and never add to `show_private` without the owner asking.
 - Do not edit the sibling repos from here. Graph refreshes go through
   `xian-meta/scripts/graphify_workspace.py`, which only touches their ignored
   `graphify-out/` folders.
