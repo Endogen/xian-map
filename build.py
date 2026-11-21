@@ -650,9 +650,17 @@ def graph_commit(repo_root: Path) -> str | None:
     return graph.get("built_at_commit", "unknown") if graph else None
 
 
-def check(scans: list[RepoScan], taxonomy: Taxonomy, manifest: dict) -> int:
-    exempt = {repo["name"] for repo in manifest.get("repos", []) if repo.get("tier") == "exempt"}
-    findings = [
+def check(scans: list[RepoScan], taxonomy: Taxonomy, manifest: dict, exclude=frozenset()) -> int:
+    entries = manifest.get("repos", [])
+    exempt = {repo["name"] for repo in entries if repo.get("tier") == "exempt"}
+    present = {scan.name for scan in scans}
+    missing = sorted(
+        repo["name"] for repo in entries
+        if repo.get("clone_by_default", True) and not repo["name"].startswith(".")
+        and repo["name"] not in present and repo["name"] not in exclude
+    )
+    findings = [f"{name}: missing checkout" for name in missing]
+    findings += [
         line
         for scan in scans
         if not scan.spec.external
@@ -661,7 +669,10 @@ def check(scans: list[RepoScan], taxonomy: Taxonomy, manifest: dict) -> int:
     ] + description_findings(taxonomy)
     for line in findings:
         print(line)
-    print(f"{len(findings)} findings" if findings else "No findings: the map is up to date.")
+    if findings:
+        print(f"{len(findings)} finding{'s' if len(findings) != 1 else ''}")
+    else:
+        print("No findings: the map is up to date.")
     return 1 if findings else 0
 
 
@@ -692,9 +703,10 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     taxonomy = parse_taxonomy(json.loads(args.taxonomy.read_text()))
     manifest = json.loads((args.manifest or args.workspace_root / MANIFEST_IN_WORKSPACE).read_text())
-    data, scans = build_map(args.workspace_root.resolve(), taxonomy, manifest, exclude=frozenset(args.exclude))
+    exclude = frozenset(args.exclude)
+    data, scans = build_map(args.workspace_root.resolve(), taxonomy, manifest, exclude=exclude)
     if args.check:
-        return check(scans, taxonomy, manifest)
+        return check(scans, taxonomy, manifest, exclude=widen_exclusion(taxonomy, exclude))
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "code-map.json").write_text(json.dumps(data))
     (args.out / "code-map.html").write_text(render_html(DEFAULT_VIEWER.read_text(), data, viewer_assets()))

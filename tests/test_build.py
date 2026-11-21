@@ -514,6 +514,23 @@ class WorkspaceBuildTest(unittest.TestCase):
             code = code_map.main(["--workspace-root", str(self.root), "--taxonomy", str(taxonomy_path), "--manifest", str(manifest_path), "--check"])
         self.assertEqual((code, stdout.getvalue()), (0, "No findings: the map is up to date.\n"))
 
+    def test_check_mode_reports_only_missing_default_checkouts(self):
+        taxonomy_path = self.root / "taxonomy.json"
+        taxonomy_path.write_text("{}")
+        manifest_path = self.root / "manifest.json"
+        manifest_path.write_text(json.dumps({"repos": [
+            {"name": "required", "clone_by_default": True},
+            {"name": "optional", "clone_by_default": False},
+            {"name": "excluded", "clone_by_default": True},
+            {"name": ".github", "clone_by_default": True},
+        ]}))
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            code = code_map.main(["--workspace-root", str(self.root), "--taxonomy", str(taxonomy_path),
+                                  "--manifest", str(manifest_path), "--exclude", "excluded", "--check"])
+        self.assertEqual(code, 1)
+        self.assertEqual(stdout.getvalue().splitlines(), ["required: missing checkout", "1 finding"])
+
     def test_cli_writes_html_with_embedded_data_and_reports_coverage(self):
         taxonomy_path = self.root / "taxonomy.json"
         taxonomy_path.write_text(json.dumps(self.taxonomy_raw))

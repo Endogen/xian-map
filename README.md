@@ -238,6 +238,7 @@ python3 build.py           # rebuild the page
 | `<repo>: N source files in no capability, e.g. <path>` | New files that no capability's `paths` match. | Add a glob to the capability they belong to, or add a new capability. Order matters: put specific globs before catch-alls like `"src/*"`. |
 | `<repo>: capability <id> matches no files` | Its folder moved, was renamed or deleted, or an earlier capability now catches the files. | Fix or remove the `paths`, or reorder the capabilities. |
 | `<repo>: not listed in capabilities.json` | A repo appeared in the workspace manifest. | Add it under `repos`: with capabilities, or with `"capabilities": []` to keep it grouped by folder on purpose. |
+| `<repo>: missing checkout` | The manifest includes this repo in the default workspace, and the checkout is absent. | Run `python3 xian-meta/scripts/bootstrap_workspace.py` from the workspace root, or use `--exclude <repo>` for a partial map. |
 | `<repo>: graphify graph was built at X, the repo is at Y` | The in-repo call links are older than the code. | From the workspace root: `python3 xian-meta/scripts/graphify_workspace.py refresh --repo <repo>` (omit `--repo` for all). |
 | `<repo>: no graphify graph` | The repo has never been indexed. | Run graphify in that repo (see `xian-meta/docs/CODE_GRAPH_WORKFLOW.md`). |
 | `<repo>: capability <id> has no summary or purpose` | The details panel can't say what it does or why it exists. | Add a one-sentence `summary` (what it does) and `purpose` (why the system needs it). Read the code first; don't guess. |
