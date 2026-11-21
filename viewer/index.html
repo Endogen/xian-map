@@ -841,7 +841,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     const wires = repoModel.wires.map((w) => ({ ...w, still: !focus,
       faint: Boolean(focus) && w.from !== `repo:${focus}` && w.to !== `repo:${focus}` }));
     drawRepoCanvas({ model: { ...repoModel, wires }, classes, animate: state.animate, shape: "curved", reveal: state.reveal,
-      onNodeClick: (node) => { if (node.type === "repo") selectRepo(state.repoFocus === node.data.name ? null : node.data.name); },
+      onNodeClick: (node) => { if (node.type === "repo") selectRepo(state.repoFocus === node.data.name ? null : representative(node.data.name)); },
       onNodeDoubleClick: (node) => { if (node.type === "repo") showRepoInMap(node.data.name); },
       onPaneClick: () => { if (state.repoFocus) { state.repoFocus = null; update(); } } });
   }
@@ -849,9 +849,9 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   // --- one selection across views ----------------------------------------------
   // Selecting a repo also selects the capability that stands for it, so Focus
   // and Map show the same thing; entering a view shows the current selection.
-  function selectRepo(name) {
-    state.repoFocus = name;
-    if (name) state.selected = representative(name);
+  function selectRepo(id) {
+    state.repoFocus = id ? caps.get(id).repo : null;
+    if (id) state.selected = id;
     update();
     rememberLocation();
   }
@@ -863,10 +863,10 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     setTimeout(() => node.classList.remove("pulse"), 2300);
   }
 
-  function showSelectionInMap() {
+  function showSelectionInMap(behavior = "auto") {
     const tile = state.selected && tiles.get(state.selected);
     if (!tile) return;
-    tile.scrollIntoView({ block: "center" });
+    tile.scrollIntoView({ block: "center", behavior });
     pulse(tile);
   }
 
@@ -876,34 +876,29 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
 
   // Go to a search or lens result in the current view.
   function reveal(hit) {
-    if (state.mode === "focus") return focusOn(hit.type === "repo" ? representative(hit.id) : hit.id);
+    const id = hit.type === "repo" ? representative(hit.id) : hit.id;
+    if (state.mode === "focus") return focusOn(id);
     if (state.mode === "repos") {
-      const name = hit.type === "repo" ? hit.id : caps.get(hit.id).repo;
-      if (hit.type === "capability") state.selected = hit.id;
-      state.repoFocus = name;
-      zoomToRepo(name);
-      update();
-      return rememberLocation();
+      zoomToRepo(caps.get(id).repo);
+      return selectRepo(id);
     }
-    if (hit.type === "repo") {
-      const card = $("map-sections").querySelector(`[data-repo="${CSS.escape(hit.id)}"]`);
-      card.scrollIntoView({ block: "center", behavior: "smooth" });
-      return pulse(card);
-    }
-    openDetails(hit.id);
-    tiles.get(hit.id).scrollIntoView({ block: "center", behavior: "smooth" });
-    pulse(tiles.get(hit.id));
+    openDetails(id);
+    showSelectionInMap("smooth");
   }
 
-  // Switching views by hand keeps the selection in sight.
-  function switchView(mode) {
-    if (mode === state.mode) return;
-    if (mode === "repos" && state.selected) {
-      state.repoFocus = caps.get(state.selected).repo;
-      zoomToRepo(state.repoFocus);
+  // Opening a view from a bookmark or a view switch shows the same selection.
+  function showSelectedView(mode) {
+    if (mode === "repos") {
+      state.repoFocus = state.selected ? caps.get(state.selected).repo : null;
+      if (state.repoFocus) zoomToRepo(state.repoFocus);
+      else state.reveal = null;
     }
     setMode(mode);
     if (mode === "map") showSelectionInMap();
+  }
+
+  function switchView(mode) {
+    if (mode !== state.mode) showSelectedView(mode);
   }
 
   // --- search: find and go --------------------------------------------------------
@@ -1111,10 +1106,11 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   function restoreLocation() {
     const params = new URLSearchParams(location.hash.slice(1));
     const cap = params.get("cap");
-    if (caps.has(cap)) state.selected = cap;
+    state.selected = caps.has(cap) ? cap : null;
+    state.trail = [];
     const mode = ["map", "focus", "repos"].includes(params.get("mode")) ? params.get("mode") : "map";
     state.panel = mode === "map" && Boolean(state.selected);
-    setMode(mode);
+    showSelectedView(mode);
   }
 
   // --- wiring ----------------------------------------------------------------
