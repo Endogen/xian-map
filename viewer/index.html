@@ -750,17 +750,18 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
       setChip(null);
       setTimeout(() => flow.fitView({ padding: 0.14, duration: reducedMotion ? 0 : 450 }), 30);
     };
-    // Zoom to a node asked for by search, a lens or a view switch. A canvas that
+    // Zoom to the nodes asked for by search, a lens or a view switch. A canvas that
     // was hidden a moment ago has no size yet, so wait until it is measured, and
     // apply each request once (after React Flow's own initial fit).
     const sized = useStore((store) => store.width > 0 && store.height > 0);
     const measured = useNodesInitialized();
     const applied = useRef(null);
     useEffect(() => {
-      if (!reveal || !sized || !measured || applied.current === reveal.nonce || !model.nodes.some((n) => n.id === reveal.id)) return undefined;
+      const targets = reveal ? model.nodes.filter((n) => reveal.ids.includes(n.id)).map((n) => ({ id: n.id })) : [];
+      if (!targets.length || !sized || !measured || applied.current === reveal.nonce) return undefined;
       const timer = setTimeout(() => {
         applied.current = reveal.nonce;
-        flow.fitView({ nodes: [{ id: reveal.id }], duration: 450, padding: 1.4, maxZoom: 1.1 });
+        flow.fitView({ nodes: targets, duration: 450, padding: targets.length > 1 ? 0.2 : 1.4, maxZoom: 1.1 });
       }, 120);
       return () => clearTimeout(timer);
     }, [reveal && reveal.nonce, sized, measured]);
@@ -869,7 +870,25 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   function toggleFilter(kind, value) {
     state[kind] = state[kind] === value ? null : value;
     syncFilterButtons();
+    if (state[kind]) showLens();
+    else update();
+  }
+
+  // Picking a language or tag shows what it found, whatever was selected
+  // before: the biggest match becomes the selection (Map scrolls to it, Focus
+  // centres it) and Repo flow fits every repo that has a match.
+  function showLens() {
+    const items = L.lens(mappedRepos, { lang: state.lang, tag: state.tag }).items;
+    if (!items.length) return update();
+    state.panel = false;
+    state.repoFocus = null;
+    if (state.mode === "focus") return focusOn(items[0].id);
+    state.selected = items[0].id;
+    if (state.mode === "repos") state.reveal = { ids: [...new Set(items.map((item) => `repo:${caps.get(item.id).repo}`))], nonce: Date.now() };
+    renderPanel();
     update();
+    if (state.mode === "map") showSelectionInMap("smooth");
+    rememberLocation();
   }
 
   function syncFilterButtons() {
@@ -963,7 +982,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   }
 
   function zoomToRepo(name) {
-    state.reveal = { id: `repo:${name}`, nonce: Date.now() };
+    state.reveal = { ids: [`repo:${name}`], nonce: Date.now() };
   }
 
   // Go to a search or lens result in the current view.
