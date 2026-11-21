@@ -332,3 +332,85 @@ test("real ELK puts the foundations in the last column and routes a back link fr
   const [sx] = numbers(back.d), end = numbers(back.d).slice(-2);
   assert.ok(sx >= x["repo:sdk"] && end[0] <= x["repo:app"] + SIZE.repo.w, back.d);
 });
+
+// --- search and lenses -----------------------------------------------------------
+const cap = (repo, id, name, extra = {}) => ({ id: `${repo}/${id}`, repo, name, summary: "", tags: [], languages: [], files: [], ...extra });
+const REPOS = [
+  { name: "xian-linter", summary: "Standalone contract linter.", capabilities: [
+    cap("xian-linter", "linter", "Contract linter", { tags: ["linting"], languages: [["Python", 450]], files: [["xian_linter/linter.py", "Python", 450]] }),
+  ] },
+  { name: "xian-contracting", summary: "Compiler and VM.", capabilities: [
+    cap("xian-contracting", "linting", "Contract linting & conformance", { tags: ["linting", "compilation"], languages: [["Python", 2400]],
+      files: [["src/contracting/compilation/linter.py", "Python", 2000]] }),
+    cap("xian-contracting", "vm", "VM interpreter", { tags: ["execution"], languages: [["Rust", 40000]], files: [["packages/vm/src/interpreter.rs", "Rust", 40000]] }),
+    cap("xian-contracting", "zk", "Zero-knowledge proofs", { tags: ["zk"], languages: [["Python", 4400], ["Rust", 4300]] }),
+  ] },
+  { name: "cometbft", summary: "Consensus engine.", external: true, capabilities: [
+    cap("cometbft", "rpc", "JSON-RPC", { tags: ["rpc"], languages: [["Go", null]] }),
+  ] },
+];
+
+test("search ranks name matches first (a repo before its capabilities, shorter names first)", () => {
+  const { results, total } = layout.search("lint", REPOS);
+  assert.deepEqual(results.map((r) => [r.type, r.id]), [
+    ["repo", "xian-linter"],
+    ["capability", "xian-linter/linter"],
+    ["capability", "xian-contracting/linting"],
+  ]);
+  assert.equal(total, 3);
+  assert.deepEqual(layout.search("lint", [...REPOS].reverse()).results.map((r) => r.id),
+    ["xian-linter", "xian-linter/linter", "xian-contracting/linting"], "ranking does not depend on input order");
+});
+
+test("every word of the query has to match, in any field", () => {
+  assert.deepEqual(layout.search("contracting vm", REPOS).results.map((r) => r.id), ["xian-contracting/vm", "xian-contracting"]);
+  assert.deepEqual(layout.search("  ", REPOS), { results: [], total: 0 });
+  assert.deepEqual(layout.search("nothing-like-this", REPOS), { results: [], total: 0 });
+});
+
+test("a file hit says which file matched", () => {
+  const [hit] = layout.search("interpreter.rs", REPOS).results;
+  assert.deepEqual([hit.id, hit.via], ["xian-contracting/vm", "packages/vm/src/interpreter.rs"]);
+  assert.equal(layout.search("vm interpreter", REPOS).results[0].via, undefined);
+});
+
+test("search is case-insensitive and stops at the limit but reports the total", () => {
+  const { results, total } = layout.search("CONTRACT", REPOS, 2);
+  assert.equal(results.length, 2);
+  assert.equal(total, 6);
+});
+
+test("a language lens lists capabilities by how much of that language they hold", () => {
+  const lens = layout.lens(REPOS, { lang: "Rust" });
+  assert.deepEqual(lens.items.map((i) => [i.id, i.amount]), [["xian-contracting/vm", 40000], ["xian-contracting/zk", 4300]]);
+  assert.deepEqual([lens.repos, lens.loc], [1, 44300]);
+});
+
+test("a tag lens sorts by size, external capabilities last, and both filters combine", () => {
+  const byTag = layout.lens(REPOS, { tag: "linting" });
+  assert.deepEqual(byTag.items.map((i) => [i.id, i.amount]), [["xian-contracting/linting", 2400], ["xian-linter/linter", 450]]);
+  assert.deepEqual(layout.lens(REPOS, { tag: "rpc" }).items.map((i) => [i.id, i.amount]), [["cometbft/rpc", null]]);
+  assert.deepEqual(layout.lens(REPOS, { lang: "Python", tag: "zk" }).items.map((i) => i.id), ["xian-contracting/zk"]);
+  assert.deepEqual(layout.lens(REPOS, { lang: "Go" }), { items: [{ id: "cometbft/rpc", repo: "cometbft", amount: null }], repos: 1, loc: 0 });
+});
+
+test("a capability with zero lines still ranks above an external system with none", () => {
+  const repos = [{ name: "r", summary: "", capabilities: [
+    cap("r", "a-ext", "External thing", { tags: ["t"], languages: [["Go", null]] }),
+    cap("r", "b-zero", "Empty package", { tags: ["t"], languages: [["Python", 0]] }),
+  ] }];
+  assert.deepEqual(layout.lens(repos, { tag: "t" }).items.map((i) => [i.id, i.amount]), [["r/b-zero", 0], ["r/a-ext", null]]);
+  repos[0].capabilities.reverse(); // the sort sees the pair the other way round
+  assert.deepEqual(layout.lens(repos, { tag: "t" }).items.map((i) => i.id), ["r/b-zero", "r/a-ext"]);
+});
+
+test("a repo beats a capability with the same score, whatever order or name length", () => {
+  const repos = [{ name: "alpha", summary: "", capabilities: [cap("alpha", "vm", "vm")] }, { name: "vm-tools", summary: "", capabilities: [] }];
+  assert.deepEqual(layout.search("vm", repos).results.map((r) => r.id), ["vm-tools", "alpha/vm"]);
+  assert.deepEqual(layout.search("vm", [...repos].reverse()).results.map((r) => r.id), ["vm-tools", "alpha/vm"]);
+});
+
+test("a capability can be found by its summary alone", () => {
+  const repos = [{ name: "r", summary: "", capabilities: [cap("r", "x", "Helpers", { summary: "Consensus glue" })] }];
+  assert.deepEqual(layout.search("consensus", repos).results.map((r) => [r.id, r.score]), [["r/x", 30]]);
+});

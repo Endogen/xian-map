@@ -60,17 +60,27 @@ sibling repos on disk; a second command tells you what has drifted.
 | Repo flow | Click a repo | Animates its links and fades everything else; click the background to clear. |
 | Repo flow | Double-click a repo | Opens it in the Map. |
 | Sidebar | Tick or untick a link kind | Shows or hides in-repo calls, cross-repo imports, or runtime protocols in every view. |
-| Sidebar | Click a language or a functionality tag | Highlights the matching capabilities everywhere; **Clear** resets. |
+| Sidebar | Click a language or a functionality tag | Turns on a lens: matching capabilities stay highlighted in every view, and a list at the top of the sidebar shows all of them, biggest first (for a language: by lines in that language), e.g. "Rust · 11 capabilities in 2 repos · 71k lines of Rust". Click an entry to go there. In Repo flow, each repo card shows how much of the language it holds. Language and tag combine; **Clear** resets. |
 | Sidebar | Animate flow / Show all links / Wire style | Turns the moving dots on or off, draws every link in the Map, switches Focus wires between curved and orthogonal. |
-| Top bar | Search | Matches capability names, summaries, repos, tags and file paths. |
+| Top bar | Search (<kbd>/</kbd>) | Lists ranked matches as you type: repos, capabilities, and files (shown with the capability that holds them). <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd>, or click, takes you there in the current view: the Map scrolls to it and opens its details, Focus puts it in the centre, Repo flow selects its repo and zooms in. |
 | Top bar | Theme button | Cycles system, light and dark. |
 
 ![Details panel and filters](docs/details.jpg)
 
+### One selection across views
+
+There is always one selected capability, and every view shows it: the Map
+outlines its card, Focus puts it in the centre, Repo flow highlights its repo.
+Switching views keeps it in sight (the Map scrolls to it, Repo flow zooms to
+its repo). Clicking a repo in Repo flow selects the capability that stands for
+it (the one you had selected, if it lives there, otherwise its most connected
+one), so switching to Focus right after shows that repo's centre piece.
+
 Keyboard: <kbd>/</kbd> search, <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> switch
-views, <kbd>Esc</kbd> closes the panel or drawer. The URL remembers the view
-and the selected capability (`#mode=focus&cap=xian-abci/execution`), so you can
-bookmark or share a position.
+views, <kbd>Esc</kbd> clears the search or closes the panel or drawer. The URL
+remembers the view and the selected capability
+(`#mode=focus&cap=xian-abci/execution`), so you can bookmark or share a
+position.
 
 ### Reading the map
 
@@ -300,7 +310,7 @@ Rules, all enforced when the file is loaded:
 | --- | --- |
 | `build.py` | The generator and `--check` (Python standard library only). |
 | `viewer/index.html` | The page: layout, styles, the Map view, sidebar, details panel, and the React Flow canvases. |
-| `viewer/layout.js` | Pure, tested logic: focus columns, repo links, cycle cutting, ELK input and output, wire routing (ports, curves, orthogonal lanes). |
+| `viewer/layout.js` | Pure, tested logic: search ranking, language and tag lenses, focus columns, repo links, cycle cutting, ELK input and output, wire routing (ports, curves, orthogonal lanes). |
 | `viewer/vendor/` | React, React Flow and ELK browser builds (see its README for versions and updating). |
 | `tests/test_build.py` | Generator and check tests, including a full build of a fake two-repo workspace. |
 | `tests/layout.test.cjs` | Layout and routing tests, including a run of the real ELK. |

@@ -329,7 +329,78 @@ function reroute(wires, rectOf, moved, options) {
   return wires.map((w) => (keep(w) ? w : routed.get(w.key)));
 }
 
+// --- search and lenses -----------------------------------------------------------
+
+const startsWord = (text, term) => text.split(/[^a-z0-9]+/).some((word) => word.startsWith(term));
+const fieldScore = (text, term, wordStart, inside) => (startsWord(text, term) ? wordStart : text.includes(term) ? inside : 0);
+
+// Best score of one query term against a capability, and the file it matched
+// when only a file path did.
+function capabilityTermScore(cap, term) {
+  const best = Math.max(
+    fieldScore(cap.name.toLowerCase(), term, 100, 80),
+    fieldScore(cap.repo.toLowerCase(), term, 50, 50),
+    ...cap.tags.map((tag) => fieldScore(tag, term, 40, 40)),
+    fieldScore((cap.summary || "").toLowerCase(), term, 30, 30),
+  );
+  if (best) return { score: best };
+  const file = cap.files.find(([path]) => path.toLowerCase().includes(term));
+  return file ? { score: 20, via: file[0] } : { score: 0 };
+}
+
+function repoTermScore(repo, term) {
+  return Math.max(fieldScore(repo.name.toLowerCase(), term, 100, 80), fieldScore((repo.summary || "").toLowerCase(), term, 30, 30));
+}
+
+const sum = (values) => values.reduce((total, value) => total + value, 0);
+
+// Ranked search over repos and capabilities: every word of the query must
+// match some field. Ties go to repos, then shorter names.
+function search(query, repos, limit = 8) {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return { results: [], total: 0 };
+  const hits = repos.flatMap((repo) => [repoHit(repo, terms), ...repo.capabilities.map((cap) => capabilityHit(cap, terms))]).filter(Boolean);
+  hits.sort(byRelevance);
+  return { results: hits.slice(0, limit), total: hits.length };
+}
+
+function repoHit(repo, terms) {
+  const scores = terms.map((term) => repoTermScore(repo, term));
+  return scores.every(Boolean) ? { type: "repo", id: repo.name, name: repo.name, score: sum(scores) } : null;
+}
+
+function capabilityHit(cap, terms) {
+  const parts = terms.map((term) => capabilityTermScore(cap, term));
+  if (!parts.every((part) => part.score)) return null;
+  const via = parts.find((part) => part.via);
+  return { type: "capability", id: cap.id, name: cap.name, score: sum(parts.map((part) => part.score)), ...(via ? { via: via.via } : {}) };
+}
+
+const typeRank = (hit) => (hit.type === "repo" ? 0 : 1);
+const byRelevance = (a, b) => b.score - a.score || typeRank(a) - typeRank(b) || a.name.length - b.name.length || a.id.localeCompare(b.id);
+
+// Capabilities that hold a language and/or carry a tag, biggest first. The
+// amount is the lines in that language (or in total, for a tag); external
+// systems have no lines and come last.
+function lens(repos, { lang = null, tag = null }) {
+  const items = repos.flatMap((repo) => repo.capabilities)
+    .filter((cap) => inLens(cap, lang, tag))
+    .map((cap) => ({ id: cap.id, repo: cap.repo, amount: lensAmount(cap, lang) }));
+  items.sort(byAmount);
+  return { items, repos: new Set(items.map((item) => item.repo)).size, loc: sum(items.map((item) => item.amount || 0)) };
+}
+
+const inLens = (cap, lang, tag) => (!tag || cap.tags.includes(tag)) && (!lang || cap.languages.some(([name]) => name === lang));
+
+function lensAmount(cap, lang) {
+  const counted = cap.languages.filter(([name, loc]) => (!lang || name === lang) && loc != null);
+  return counted.length ? sum(counted.map(([, loc]) => loc)) : null;
+}
+
+const byAmount = (a, b) => (b.amount ?? -1) - (a.amount ?? -1) || a.id.localeCompare(b.id);
+
 const CodeMapLayout = {
+  search, lens,
   focusColumns, repoLinks, acyclic, route, reroute, curvePath, elbowPath, splinePath, focusCanvas, elkRepoGraph, repoCanvas,
   primaryGroup, repoOf, groupOf,
 };

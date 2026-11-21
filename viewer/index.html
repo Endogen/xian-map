@@ -73,16 +73,41 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
 .views button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
 .spacer { flex: 1; }
 .search { position: relative; width: min(340px, 34vw); }
-.search .icon { position: absolute; left: 9px; top: 7px; color: var(--ink-3); }
+.search > .icon { position: absolute; left: 9px; top: 7px; color: var(--ink-3); }
 .search input { width: 100%; height: 30px; padding: 0 34px 0 31px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--bg); }
 .search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); background: var(--surface); }
-.search kbd { position: absolute; right: 8px; top: 6px; }
+.search > kbd { position: absolute; right: 8px; top: 6px; }
+.search input::-webkit-search-cancel-button { display: none; }
+.search-results { position: absolute; z-index: 50; top: 36px; right: 0; width: min(460px, calc(100vw - 24px)); max-height: min(62vh, 520px); overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: var(--shadow); padding: 5px; }
+.result { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; width: 100%; text-align: left;
+  border: 0; background: none; border-radius: 7px; padding: 7px 8px; color: var(--ink); }
+.result.active { background: var(--accent-soft); }
+.result .r-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result .r-meta { grid-column: 2 / 4; color: var(--ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result .r-kind { font-size: 10.5px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+.result .icon { color: var(--ink-3); width: 15px; height: 15px; }
+.results-foot { display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px 3px; border-top: 1px solid var(--line); margin-top: 4px; color: var(--ink-3); font-size: 11.5px; }
+.results-empty { padding: 12px 10px; color: var(--ink-3); }
 .shell { display: grid; grid-template-columns: 268px minmax(0, 1fr) auto; min-height: 0; }
 
 /* ---- sidebar ------------------------------------------------------------ */
 .sidebar { border-right: 1px solid var(--line); background: var(--surface); overflow-y: auto; overscroll-behavior: contain; padding: 14px 14px 24px; display: grid; gap: 18px; align-content: start; }
 .side-section h3 { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); display: flex; justify-content: space-between; align-items: center; }
-.active-filters { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--ink); font-size: 12px; }
+.lens { border: 1px solid var(--accent-ring); background: var(--accent-soft); border-radius: var(--radius); padding: 10px 10px 6px; }
+.lens-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
+.lens-head strong { font-size: 13px; }
+.lens-sub { color: var(--ink-2); font-size: 12px; }
+.lens-list { display: grid; gap: 1px; max-height: 320px; overflow-y: auto; overscroll-behavior: contain; margin: 0 -4px; }
+.lens-item { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 0 8px; align-items: center; border: 0; background: none; text-align: left;
+  border-radius: 6px; padding: 5px 4px; color: var(--ink); }
+.lens-item:hover { background: var(--surface); }
+.lens-item.current { background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+.lens-item .l-name { font-size: 12.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lens-item .l-repo { grid-column: 2; color: var(--ink-3); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lens-item .l-amount { grid-row: 1; grid-column: 3; color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--accent-ring), 0 0 0 2px var(--accent); } 100% { box-shadow: 0 0 0 14px transparent, 0 0 0 2px var(--accent); } }
+.pulse { animation: pulse 1.1s ease-out 2; }
 .option { display: flex; align-items: center; gap: 9px; padding: 5px 6px; margin: 0 -6px; border-radius: 6px; cursor: pointer; color: var(--ink-2); }
 .option:hover { background: var(--surface-2); color: var(--ink); }
 .option input { margin: 0; accent-color: var(--accent); }
@@ -234,7 +259,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   .only-narrow { display: inline-flex; }
   .brand small, .views .label { display: none; }
   .search { width: auto; flex: 1; }
-  .search kbd { display: none; }
+  .search > kbd { display: none; }
 }
 @media (max-width: 640px) {
   .repo.wide { grid-column: auto; }
@@ -280,14 +305,21 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
       <button type="button" data-mode="repos" aria-pressed="false" title="Repo flow (3)"><svg class="icon"><use href="#i-flow"/></svg><span class="label">Repo flow</span></button>
     </nav>
     <div class="spacer"></div>
-    <label class="search"><svg class="icon"><use href="#i-search"/></svg>
-      <input id="search" type="search" placeholder="Search capabilities, repos, files" aria-label="Search" autocomplete="off"><kbd>/</kbd></label>
+    <div class="search" id="search-box"><svg class="icon"><use href="#i-search"/></svg>
+      <input id="search" type="search" placeholder="Find a capability, repo or file" aria-label="Find a capability, repo or file" autocomplete="off"
+        role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list"><kbd>/</kbd>
+      <div class="search-results" id="search-results" role="listbox" aria-label="Search results" hidden></div>
+    </div>
     <button class="btn ghost icon-only" id="theme" type="button" aria-label="Theme"><svg class="icon"><use href="#i-auto"/></svg></button>
   </header>
 
   <div class="shell">
     <aside class="sidebar" aria-label="Filters and display">
-      <div class="active-filters" id="active-filters" hidden><span id="active-text"></span><button class="btn ghost" id="clear-filters" type="button">Clear</button></div>
+      <section class="lens" id="lens" hidden aria-live="polite">
+        <div class="lens-head"><div><strong id="lens-title"></strong><div class="lens-sub" id="lens-sub"></div></div>
+          <button class="btn ghost" id="clear-filters" type="button">Clear</button></div>
+        <div class="lens-list" id="lens-list"></div>
+      </section>
       <section class="side-section">
         <h3>Links</h3>
         <label class="option"><input type="checkbox" data-kind="code" checked><span class="swatch" style="border-color:var(--edge-code)"></span>In-repo calls<span class="count" data-count="code"></span></label>
@@ -306,8 +338,8 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
           </div>
         </div>
       </section>
-      <section class="side-section"><h3>Languages <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">lines of code</span></h3><div class="lang-list" id="langs"></div></section>
-      <section class="side-section"><h3>Functionality</h3><div class="tag-cloud" id="tags"></div></section>
+      <section class="side-section"><h3>Languages <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">click to find them</span></h3><div class="lang-list" id="langs"></div></section>
+      <section class="side-section"><h3>Functionality <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">click to find them</span></h3><div class="tag-cloud" id="tags"></div></section>
       <div class="side-foot" id="foot"></div>
     </aside>
 
@@ -346,7 +378,8 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   "use strict";
   const L = window.CodeMapLayout;
   const { createElement: h, useState, useMemo, useEffect } = window.React;
-  const { ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Handle, Position, useNodesState } = window.ReactFlow;
+  const { ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Handle, Position, useNodesState, useReactFlow, useStore, useNodesInitialized } = window.ReactFlow;
+  const { useRef } = window.React;
 
   const LANG_COLORS = {
     "Python": "#3572A5", "Xian contract": "#8E5BD6", "TypeScript": "#1F9E89", "JavaScript": "#C9A400",
@@ -399,7 +432,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   for (const edge of edges) { push(outgoing, edge.from, edge); push(incoming, edge.to, edge); }
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const state = {
-    mode: "map", selected: null, panel: false, hover: null, tag: null, lang: null, query: "", showAll: false,
+    mode: "map", selected: null, panel: false, hover: null, tag: null, lang: null, showAll: false, reveal: null,
     animate: !reducedMotion, shape: "curved", kinds: { code: true, import: true, protocol: true }, trail: [], repoFocus: null,
     theme: stored("xian-map-theme", "system"),
   };
@@ -411,6 +444,12 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   const kindsKey = () => Object.entries(state.kinds).filter(([, on]) => on).map(([kind]) => kind).join(",");
   const dominantColor = (languages) => languages[0] ? langColor(languages[0][0]) : null;
   const degree = (id) => (outgoing.get(id) || []).length + (incoming.get(id) || []).length;
+  const mappedRepos = DATA.repos.filter((r) => r.capabilities.length);
+  // The capability that stands for a repo: the selected one if it lives there, else its most connected.
+  const representative = (repoName) => {
+    if (state.selected && caps.get(state.selected).repo === repoName) return state.selected;
+    return repos.get(repoName).capabilities.map((c) => c.id).sort((a, b) => degree(b) - degree(a))[0];
+  };
   const effectiveTheme = () => state.theme === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : state.theme;
 
   // Shared by the DOM cards and the React Flow cards.
@@ -462,10 +501,25 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
         tag, el("small", {}, String(tagCounts.get(tag))))));
   }
 
-  function renderActiveFilters() {
-    const parts = [state.lang && `language ${state.lang}`, state.tag && `“${state.tag}”`, state.query && `search “${state.query}”`].filter(Boolean);
-    $("active-filters").hidden = !parts.length;
-    $("active-text").textContent = parts.length ? `Highlighting ${parts.join(", ")}` : "";
+  // Languages and functionality tags act as a lens: matches stay highlighted in
+  // every view, and this list shows all of them so you can jump to any.
+  function renderLens() {
+    const active = Boolean(state.lang || state.tag);
+    $("lens").hidden = !active;
+    if (!active) return;
+    const result = L.lens(mappedRepos, { lang: state.lang, tag: state.tag });
+    $("lens-title").textContent = [state.lang, state.tag && `“${state.tag}”`].filter(Boolean).join(" · ");
+    const count = `${result.items.length} ${result.items.length === 1 ? "capability" : "capabilities"} in ${result.repos} ${result.repos === 1 ? "repo" : "repos"}`;
+    $("lens-sub").textContent = state.lang && result.loc ? `${count} · ${fmt(result.loc)} lines of ${state.lang}` : count;
+    $("lens-list").replaceChildren(...result.items.map((item) => {
+      const cap = caps.get(item.id);
+      return el("button", { type: "button", class: `lens-item${item.id === state.selected ? " current" : ""}`, title: `Show ${cap.name}`, "data-id": item.id,
+        onclick: () => { document.body.classList.remove("sidebar-open"); reveal({ type: "capability", id: item.id }); } },
+        el("span", { class: "dot", style: `background:${state.lang ? langColor(state.lang) : dominantColor(cap.languages) || "#999"}` }),
+        el("span", { class: "l-name" }, cap.name),
+        el("span", { class: "l-amount" }, item.amount == null ? "external" : fmt(item.amount)),
+        el("span", { class: "l-repo" }, cap.repo));
+    }));
   }
 
   // --- map view --------------------------------------------------------------
@@ -563,8 +617,14 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     return h("div", { className: `flow-card repo-node${repo.external ? " external" : ""}`, style: { "--lang": dominantColor(languages) }, title: repo.summary || repo.name },
       ...ghostHandles(),
       h("strong", null, repo.name),
-      h("small", null, repo.external ? `external · ${languages.map(([l]) => l).join(", ")}` : `${repo.capabilities.length} capabilities · ${fmt(repo.loc)} loc`),
+      h("small", null, repoSubtitle(repo, languages)),
       h(LangBar, { languages, total }));
+  }
+
+  function repoSubtitle(repo, languages) {
+    const share = state.lang && languages.find(([lang]) => lang === state.lang);
+    if (share && share[1]) return `${fmt(share[1])} lines of ${state.lang}`;
+    return repo.external ? `external · ${languages.map(([l]) => l).join(", ")}` : `${repo.capabilities.length} capabilities · ${fmt(repo.loc)} loc`;
   }
 
   const LabelNode = ({ data }) => h("div", { className: "flow-label" }, data.text);
@@ -595,9 +655,24 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
 
   // One React Flow canvas. Positions come from layout.js (and ELK for repos);
   // dragging a card re-routes only the wires that touch it.
-  function FlowCanvas({ model, classes, animate, shape, colorMode, onNodeClick, onNodeDoubleClick, onPaneClick }) {
+  function FlowCanvas({ model, classes, animate, shape, colorMode, reveal, onNodeClick, onNodeDoubleClick, onPaneClick }) {
     const [nodes, setNodes, onNodesChange] = useNodesState(model.nodes.map(toFlowNode));
     const [hover, setHover] = useState(null);
+    const flow = useReactFlow();
+    // Zoom to a node asked for by search, a lens or a view switch. A canvas that
+    // was hidden a moment ago has no size yet, so wait until it is measured, and
+    // apply each request once (after React Flow's own initial fit).
+    const sized = useStore((store) => store.width > 0 && store.height > 0);
+    const measured = useNodesInitialized();
+    const applied = useRef(null);
+    useEffect(() => {
+      if (!reveal || !sized || !measured || applied.current === reveal.nonce || !model.nodes.some((n) => n.id === reveal.id)) return undefined;
+      const timer = setTimeout(() => {
+        applied.current = reveal.nonce;
+        flow.fitView({ nodes: [{ id: reveal.id }], duration: 450, padding: 1.4, maxZoom: 1.1 });
+      }, 120);
+      return () => clearTimeout(timer);
+    }, [reveal && reveal.nonce, sized, measured]);
     useEffect(() => { setNodes((current) => current.map((n) => ({ ...n, className: classes[n.id] || "" }))); }, [classes]);
     const original = useMemo(() => new Map(model.nodes.map((n) => [n.id, n])), [model.nodes]);
     const wires = useMemo(() => {
@@ -708,17 +783,14 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   function syncFilterButtons() {
     document.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)));
     document.querySelectorAll("[data-tag]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tag === state.tag)));
-    renderActiveFilters();
+    renderLens();
   }
 
-  const hasFilter = () => Boolean(state.tag || state.lang || state.query);
+  const hasFilter = () => Boolean(state.tag || state.lang);
 
   function matches(cap) {
     if (state.tag && !cap.tags.includes(state.tag)) return false;
-    if (state.lang && !cap.languages.some(([lang]) => lang === state.lang)) return false;
-    if (!state.query) return true;
-    const text = `${cap.name} ${cap.summary} ${cap.repo} ${cap.tags.join(" ")}`.toLowerCase();
-    return text.includes(state.query) || cap.files.some(([path]) => path.toLowerCase().includes(state.query));
+    return !state.lang || cap.languages.some(([lang]) => lang === state.lang);
   }
 
   const incident = (id) => [...(outgoing.get(id) || []), ...(incoming.get(id) || [])].filter(visibleKind);
@@ -737,7 +809,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     for (const [id, tile] of tiles) {
       tile.classList.toggle("dim", related ? !related.has(id) : hasFilter() && !matching.has(id));
       tile.classList.toggle("match", hasFilter() && matching.has(id) && id !== state.selected);
-      tile.classList.toggle("selected", state.panel && id === state.selected);
+      tile.classList.toggle("selected", id === state.selected);
     }
     let list = [];
     if (focus) list = incident(focus);
@@ -768,10 +840,129 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     }
     const wires = repoModel.wires.map((w) => ({ ...w, still: !focus,
       faint: Boolean(focus) && w.from !== `repo:${focus}` && w.to !== `repo:${focus}` }));
-    drawRepoCanvas({ model: { ...repoModel, wires }, classes, animate: state.animate, shape: "curved",
-      onNodeClick: (node) => { if (node.type === "repo") { state.repoFocus = state.repoFocus === node.data.name ? null : node.data.name; update(); } },
+    drawRepoCanvas({ model: { ...repoModel, wires }, classes, animate: state.animate, shape: "curved", reveal: state.reveal,
+      onNodeClick: (node) => { if (node.type === "repo") selectRepo(state.repoFocus === node.data.name ? null : node.data.name); },
       onNodeDoubleClick: (node) => { if (node.type === "repo") showRepoInMap(node.data.name); },
       onPaneClick: () => { if (state.repoFocus) { state.repoFocus = null; update(); } } });
+  }
+
+  // --- one selection across views ----------------------------------------------
+  // Selecting a repo also selects the capability that stands for it, so Focus
+  // and Map show the same thing; entering a view shows the current selection.
+  function selectRepo(name) {
+    state.repoFocus = name;
+    if (name) state.selected = representative(name);
+    update();
+    rememberLocation();
+  }
+
+  function pulse(node) {
+    node.classList.remove("pulse");
+    void node.offsetWidth; // restart the animation
+    node.classList.add("pulse");
+    setTimeout(() => node.classList.remove("pulse"), 2300);
+  }
+
+  function showSelectionInMap() {
+    const tile = state.selected && tiles.get(state.selected);
+    if (!tile) return;
+    tile.scrollIntoView({ block: "center" });
+    pulse(tile);
+  }
+
+  function zoomToRepo(name) {
+    state.reveal = { id: `repo:${name}`, nonce: Date.now() };
+  }
+
+  // Go to a search or lens result in the current view.
+  function reveal(hit) {
+    if (state.mode === "focus") return focusOn(hit.type === "repo" ? representative(hit.id) : hit.id);
+    if (state.mode === "repos") {
+      const name = hit.type === "repo" ? hit.id : caps.get(hit.id).repo;
+      if (hit.type === "capability") state.selected = hit.id;
+      state.repoFocus = name;
+      zoomToRepo(name);
+      update();
+      return rememberLocation();
+    }
+    if (hit.type === "repo") {
+      const card = $("map-sections").querySelector(`[data-repo="${CSS.escape(hit.id)}"]`);
+      card.scrollIntoView({ block: "center", behavior: "smooth" });
+      return pulse(card);
+    }
+    openDetails(hit.id);
+    tiles.get(hit.id).scrollIntoView({ block: "center", behavior: "smooth" });
+    pulse(tiles.get(hit.id));
+  }
+
+  // Switching views by hand keeps the selection in sight.
+  function switchView(mode) {
+    if (mode === state.mode) return;
+    if (mode === "repos" && state.selected) {
+      state.repoFocus = caps.get(state.selected).repo;
+      zoomToRepo(state.repoFocus);
+    }
+    setMode(mode);
+    if (mode === "map") showSelectionInMap();
+  }
+
+  // --- search: find and go --------------------------------------------------------
+  const search = $("search");
+  const resultsBox = $("search-results");
+  const found = { results: [], active: 0 };
+
+  function renderSearch() {
+    const query = search.value.trim();
+    if (!query) return closeSearch();
+    const { results, total } = L.search(query, mappedRepos, 10);
+    found.results = results;
+    found.active = 0;
+    const where = { map: "show it in the map", focus: "focus on it", repos: "show its repo" }[state.mode];
+    resultsBox.replaceChildren(
+      ...(results.length ? results.map(renderResult) : [el("div", { class: "results-empty" }, `Nothing matches “${query}”.`)]),
+      results.length ? el("div", { class: "results-foot" },
+        el("span", {}, total > results.length ? `${results.length} of ${total} · keep typing to narrow` : `${total} ${total === 1 ? "match" : "matches"}`),
+        el("span", {}, el("kbd", {}, "↑"), el("kbd", {}, "↓"), " ", el("kbd", {}, "Enter"), ` ${where}`)) : null);
+    resultsBox.hidden = false;
+    search.setAttribute("aria-expanded", "true");
+    markActive();
+  }
+
+  function renderResult(hit, index) {
+    const choose = () => chooseResult(index);
+    const common = { type: "button", class: "result", role: "option", id: `result-${index}`, tabindex: "-1",
+      onmousedown: (event) => event.preventDefault(), onclick: choose, onmousemove: () => { found.active = index; markActive(); } };
+    if (hit.type === "repo") {
+      const repo = repos.get(hit.id);
+      return el("button", common, icon("map"), el("span", { class: "r-name" }, repo.name), el("span", { class: "r-kind" }, "repo"),
+        el("span", { class: "r-meta" }, repo.summary || `${repo.capabilities.length} capabilities`));
+    }
+    const cap = caps.get(hit.id);
+    const languages = languageShares(cap).map(([, text]) => text).join(", ");
+    return el("button", common, el("span", { class: "dot", style: `background:${dominantColor(cap.languages) || "#999"}` }),
+      el("span", { class: "r-name" }, cap.name), el("span", { class: "r-kind" }, cap.repo),
+      el("span", { class: "r-meta" }, hit.via ? `file ${hit.via}` : languages));
+  }
+
+  function markActive() {
+    resultsBox.querySelectorAll(".result").forEach((row, index) => row.classList.toggle("active", index === found.active));
+    const row = $(`result-${found.active}`);
+    if (row) { search.setAttribute("aria-activedescendant", row.id); row.scrollIntoView({ block: "nearest" }); }
+  }
+
+  function chooseResult(index) {
+    const hit = found.results[index];
+    if (!hit) return;
+    search.value = "";
+    closeSearch();
+    search.blur();
+    reveal(hit);
+  }
+
+  function closeSearch() {
+    resultsBox.hidden = true;
+    search.setAttribute("aria-expanded", "false");
+    search.removeAttribute("aria-activedescendant");
   }
 
   // --- map wires (SVG overlay inside the scrolling map stage) ----------------
@@ -902,7 +1093,12 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     $("theme").title = `Theme: ${state.theme} (click to change)`;
   }
 
+  function markLensCurrent() {
+    $("lens-list").querySelectorAll(".lens-item").forEach((row) => row.classList.toggle("current", row.dataset.id === state.selected));
+  }
+
   function rememberLocation() {
+    markLensCurrent();
     const params = new URLSearchParams({ mode: state.mode });
     if (state.selected) params.set("cap", state.selected);
     try {
@@ -922,11 +1118,18 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   }
 
   // --- wiring ----------------------------------------------------------------
-  document.querySelectorAll(".views button").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
-  const search = $("search");
-  search.addEventListener("input", () => { state.query = search.value.trim().toLowerCase(); renderActiveFilters(); update(); });
+  document.querySelectorAll(".views button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.mode)));
+  search.addEventListener("input", renderSearch);
+  search.addEventListener("focus", () => { if (search.value.trim()) renderSearch(); });
+  search.addEventListener("blur", closeSearch);
+  search.addEventListener("keydown", (event) => {
+    const count = found.results.length;
+    if (event.key === "ArrowDown" && count) { event.preventDefault(); found.active = (found.active + 1) % count; markActive(); }
+    else if (event.key === "ArrowUp" && count) { event.preventDefault(); found.active = (found.active - 1 + count) % count; markActive(); }
+    else if (event.key === "Enter") { event.preventDefault(); chooseResult(found.active); }
+  });
   $("clear-filters").addEventListener("click", () => {
-    state.tag = state.lang = null; state.query = ""; search.value = "";
+    state.tag = state.lang = null;
     syncFilterButtons(); update();
   });
   $("show-all").addEventListener("change", (event) => { state.showAll = event.target.checked; update(); });
@@ -953,8 +1156,9 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   window.addEventListener("hashchange", restoreLocation); // links and bookmarks to #mode=…&cap=…
   $("map-sections").addEventListener("click", (event) => { if (!event.target.closest("button")) openDetails(null); });
   document.addEventListener("keydown", (event) => {
-    const typing = event.target.matches("input, select, textarea");
+    const typing = event.target instanceof Element && event.target.matches("input, select, textarea");
     if (event.key === "Escape") {
+      if (event.target === search && search.value) { search.value = ""; closeSearch(); return; }
       if (typing) { event.target.blur(); return; }
       if (document.body.classList.contains("sidebar-open")) document.body.classList.remove("sidebar-open");
       else if (state.panel) openDetails(null);
@@ -963,14 +1167,14 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     }
     if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.key === "/") { event.preventDefault(); search.focus(); }
-    else if (["1", "2", "3"].includes(event.key)) setMode(["map", "focus", "repos"][Number(event.key) - 1]);
+    else if (["1", "2", "3"].includes(event.key)) switchView(["map", "focus", "repos"][Number(event.key) - 1]);
   });
   let frame = 0;
   new ResizeObserver(() => { if (state.mode === "map") { cancelAnimationFrame(frame); frame = requestAnimationFrame(update); } }).observe(stage);
 
   applyTheme();
   renderSidebar();
-  renderActiveFilters();
+  renderLens();
   restoreLocation();
 })();
 </script>
