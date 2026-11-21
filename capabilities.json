@@ -1,0 +1,523 @@
+{
+  "tags": [
+    "consensus", "execution", "storage", "compilation", "linting", "crypto", "zk",
+    "rpc", "api", "indexing", "sdk", "wallet", "ui", "cli", "config", "deployment",
+    "testing", "release", "observability", "security", "contracts", "governance",
+    "bridge", "dex", "automation", "ai", "docs", "unmapped"
+  ],
+  "repos": {
+    "cometbft": {
+      "summary": "CometBFT consensus engine (Go binary, run by xian-stack). Not in this workspace; shown because every tx passes through it.",
+      "external": true,
+      "capabilities": [
+        {"id": "rpc", "name": "JSON-RPC / WebSocket", "tags": ["rpc"], "languages": ["Go"],
+         "summary": "broadcast_tx_*, abci_query, status, block and event subscriptions."},
+        {"id": "consensus", "name": "Consensus, mempool & P2P", "tags": ["consensus"], "languages": ["Go"],
+         "summary": "BFT consensus, mempool, block store and gossip. Drives the app through ABCI."}
+      ]
+    },
+    "postgres": {
+      "summary": "PostgreSQL database used by the blockchain data service (BDS).",
+      "external": true,
+      "capabilities": [
+        {"id": "db", "name": "PostgreSQL", "tags": ["storage", "indexing"], "languages": ["SQL"],
+         "summary": "Indexed blocks, txs, events, balances and DEX candles."}
+      ]
+    },
+    "solana": {
+      "summary": "External chain the bridge settles against.",
+      "external": true,
+      "capabilities": [
+        {"id": "chain", "name": "Solana network", "tags": ["bridge", "rpc"], "languages": ["Rust"],
+         "summary": "Reached by xian-bridge over Solana JSON-RPC."}
+      ]
+    },
+
+    "xian-abci": {
+      "summary": "The Xian node application: answers CometBFT's ABCI calls and executes transactions.",
+      "capabilities": [
+        {"id": "abci-server", "name": "ABCI server", "tags": ["consensus", "rpc"],
+         "summary": "Socket server that speaks the ABCI protocol with CometBFT and dispatches to method handlers.",
+         "paths": ["src/abci/*", "src/xian/xian_abci.py"]},
+        {"id": "protobuf", "name": "CometBFT protobuf types", "tags": ["rpc"],
+         "summary": "Generated Python protobuf bindings for the CometBFT wire format.",
+         "paths": ["src/tendermint/*", "src/gogoproto/*"]},
+        {"id": "methods", "name": "ABCI method handlers", "tags": ["consensus", "execution"],
+         "summary": "check_tx, prepare/process_proposal, finalize_block, commit, query, init_chain and their helpers.",
+         "paths": ["src/xian/methods/*"]},
+        {"id": "execution", "name": "Tx & block execution", "tags": ["execution"],
+         "summary": "Execution engine, processor, fee and mempool policy, nonces, simulator.",
+         "paths": ["src/xian/execution_engine.py", "src/xian/execution_policy.py", "src/xian/processor.py",
+                   "src/xian/simulator.py", "src/xian/fee_policy.py", "src/xian/nonce.py",
+                   "src/xian/mempool_policy.py", "src/xian/runtime_features.py",
+                   "src/xian/utils/tx.py", "src/xian/utils/block.py"]},
+        {"id": "validators", "name": "Validators & evidence", "tags": ["consensus", "governance"],
+         "summary": "Validator set updates, evidence and penalty policy, checkpoint validation.",
+         "paths": ["src/xian/validators.py", "src/xian/evidence_policy.py", "src/xian/checkpoint_validation.py"]},
+        {"id": "state", "name": "State, snapshots & sync", "tags": ["storage"],
+         "summary": "State roots, export, snapshots and restore, state sync, full-node store.",
+         "paths": ["src/xian/state_*.py", "src/xian/snapshot_*.py", "src/xian/full_node_store*.py",
+                   "src/xian/recovery_genesis.py", "src/xian/services/state_sync.py",
+                   "src/xian/services/snapshot_limits.py", "src/xian/utils/state_patches.py"]},
+        {"id": "bds", "name": "Blockchain data service", "tags": ["indexing", "storage"],
+         "summary": "Indexes blocks, txs and events into PostgreSQL, builds DEX candles, reindexing.",
+         "paths": ["src/xian/services/bds/*"]},
+        {"id": "genesis", "name": "Genesis builder", "tags": ["config"],
+         "summary": "Builds the genesis state from network config and system contracts.",
+         "paths": ["src/xian/genesis_builder.py"]},
+        {"id": "node-config", "name": "Node config & setup", "tags": ["config"],
+         "summary": "Node config files, defaults, paths and CometBFT config helpers.",
+         "paths": ["src/xian/node_*.py", "src/xian/config_*.py", "src/xian/constants.py",
+                   "src/xian/toml_utils.py", "src/xian/utils/cometbft.py"]},
+        {"id": "cli", "name": "Node admin CLI", "tags": ["cli"],
+         "summary": "Snapshot, export, reindex and node-configuration commands.",
+         "paths": ["src/xian/cli/*"]},
+        {"id": "observability", "name": "Logging, metrics & dashboard", "tags": ["observability", "ui"],
+         "summary": "Structured logging, log retention and safety, metrics, perf counters and the node dashboard.",
+         "paths": ["src/xian/app_logging.py", "src/xian/log_*.py", "src/xian/metrics.py", "src/xian/perf.py",
+                   "src/xian/dashboard/*"]},
+        {"id": "helpers", "name": "Shared helpers", "tags": [],
+         "summary": "Encoding, formatting, exceptions and other utilities.",
+         "paths": ["src/xian/*"]},
+        {"id": "scripts", "name": "Dev & release scripts", "tags": ["release"],
+         "paths": ["scripts/*", "*.py"]}
+      ]
+    },
+
+    "xian-contracting": {
+      "summary": "Smart-contract toolchain: compiler, Rust VM, storage and the Python runtime around them.",
+      "capabilities": [
+        {"id": "linting", "name": "Contract linting & conformance", "tags": ["linting", "compilation"],
+         "summary": "Python-side lint rules, whitelists and conformance checks for contract source.",
+         "paths": ["src/contracting/compilation/linter.py", "src/contracting/compilation/whitelists.py",
+                   "src/contracting/compilation/*conformance.py"]},
+        {"id": "compiler-py", "name": "Compilation pipeline (Python)", "tags": ["compilation"],
+         "summary": "Parser, IR, lowering and artifacts; hands off to the Rust compiler core.",
+         "paths": ["src/contracting/compilation/*", "src/contracting/compiler/*", "src/contracting/artifacts/*"]},
+        {"id": "compiler-core", "name": "Compiler core", "tags": ["compilation", "linting"],
+         "summary": "Rust compiler frontend, IR, lint and hashing; shipped to Python (PyO3) and to JS as @xian-tech/compiler (WASM).",
+         "paths": ["packages/xian-compiler-core/*"]},
+        {"id": "vm-bindings", "name": "VM bindings (Python & WASM)", "tags": ["execution"],
+         "summary": "PyO3 and WASM entry points into the VM, published as xian_vm_core and @xian-tech/vm.",
+         "paths": ["packages/xian-vm-core/src/*python*.rs", "packages/xian-vm-core/src/wasm_bindings.rs",
+                   "packages/xian-vm-core/python/*", "packages/xian-vm-core/npm/*"]},
+        {"id": "vm-block", "name": "VM block executor & host", "tags": ["execution"],
+         "summary": "Block/bundle executor, tx admission and inputs, settlement, rewards, deploy and host calls.",
+         "paths": ["packages/xian-vm-core/src/block_*", "packages/xian-vm-core/src/bundle_executor.rs",
+                   "packages/xian-vm-core/src/settlement.rs", "packages/xian-vm-core/src/transaction_*",
+                   "packages/xian-vm-core/src/tx_rewards.rs"]},
+        {"id": "vm-metering", "name": "Metering (chi)", "tags": ["execution"],
+         "summary": "Work metering and chi accounting.",
+         "paths": ["packages/xian-vm-core/src/metering.rs", "packages/xian-vm-core/src/work_meter.rs"]},
+        {"id": "vm-storage", "name": "VM state storage", "tags": ["storage"],
+         "summary": "LMDB environment, committed and in-memory stores, stored-value encoding, state roots.",
+         "paths": ["packages/xian-vm-core/src/lmdb_*", "packages/xian-vm-core/src/*_store.rs",
+                   "packages/xian-vm-core/src/foreign_storage.rs", "packages/xian-vm-core/src/storage_*",
+                   "packages/xian-vm-core/src/stored_value*", "packages/xian-vm-core/src/state_*"]},
+        {"id": "vm-sandbox", "name": "VM sandbox", "tags": ["execution", "security"],
+         "paths": ["packages/xian-vm-core/src/sandbox/*"]},
+        {"id": "numeric", "name": "Numeric & decimal semantics", "tags": ["execution"],
+         "paths": ["packages/xian-numeric/*", "packages/xian-vm-core/src/decimal_*",
+                   "packages/xian-vm-core/src/numeric_*", "packages/xian-vm-core/src/rounding.rs"]},
+        {"id": "zk", "name": "Zero-knowledge proofs", "tags": ["zk", "crypto"],
+         "summary": "Proof verification and shielded-pool support (Rust core plus Python wrapper).",
+         "paths": ["packages/xian-zk/*", "packages/xian-vm-core/src/zk_*"]},
+        {"id": "vm-interpreter", "name": "VM interpreter & builtins", "tags": ["execution"],
+         "summary": "Interpreter, expression/statement evaluation, builtins, values and string handling.",
+         "paths": ["packages/xian-vm-core/*"]},
+        {"id": "fastpath", "name": "Fastpath core", "tags": ["execution"],
+         "paths": ["packages/xian-fastpath-core/*"]},
+        {"id": "runtime-types", "name": "Runtime types", "tags": ["execution"],
+         "paths": ["packages/xian-runtime-types/*"]},
+        {"id": "accounts", "name": "Accounts & keys", "tags": ["crypto"],
+         "paths": ["packages/xian-accounts/*"]},
+        {"id": "storage-py", "name": "Contract storage driver", "tags": ["storage"],
+         "summary": "Python storage driver and ORM over the native LMDB store.",
+         "paths": ["src/contracting/storage/*"]},
+        {"id": "execution-py", "name": "Execution client", "tags": ["execution"],
+         "summary": "Python execution API and local client on top of the native VM.",
+         "paths": ["src/contracting/execution/*", "src/contracting/local/*"]},
+        {"id": "stdlib", "name": "Contract stdlib & crypto bridge", "tags": ["execution", "crypto"],
+         "paths": ["src/contracting/stdlib/*"]},
+        {"id": "core", "name": "Package core", "tags": [],
+         "paths": ["src/contracting/*"]},
+        {"id": "scripts", "name": "Build & release scripts", "tags": ["release"],
+         "paths": ["scripts/*"]}
+      ]
+    },
+
+    "xian-configs": {
+      "summary": "Network configuration and the system (genesis) contracts.",
+      "capabilities": [
+        {"id": "genesis-contracts", "name": "System contracts", "tags": ["contracts", "governance"], "contract": true,
+         "summary": "currency, validators, governance, rewards, chi_cost, dao, vault, zk_registry, token factory ...",
+         "paths": ["contracts/*"]},
+        {"id": "scripts", "name": "Config tooling", "tags": ["config"],
+         "paths": ["scripts/*"]}
+      ]
+    },
+
+    "xian-stack": {
+      "summary": "Docker stack that runs CometBFT + xian-abci, plus localnet e2e, release and service backends.",
+      "capabilities": [
+        {"id": "localnet", "name": "Localnet orchestration & checks", "tags": ["testing"],
+         "summary": "Multi-node localnet setup, e2e phases and protocol safety checks.",
+         "paths": ["scripts/localnet*", "scripts/e2e_*", "scripts/state_convergence_helpers.py",
+                   "scripts/contract_suite_cases.py", "scripts/governance_vote_helpers.py",
+                   "scripts/replay_corpus_bridge.py"]},
+        {"id": "workloads", "name": "Workloads & benchmarks", "tags": ["testing"],
+         "paths": ["workloads/*"]},
+        {"id": "release", "name": "Release engineering", "tags": ["release"],
+         "summary": "Release manifests and orchestration, reproducibility verification, trusted publishers.",
+         "paths": ["scripts/release*", "scripts/verify_release_reproducibility.py", "scripts/trusted_publishers.py",
+                   "scripts/export_python_runtime_requirements.py"]},
+        {"id": "backends", "name": "Service backends", "tags": ["deployment"],
+         "summary": "Backends for stack services (dex automation, intentkit, shielded relayer, ...).",
+         "paths": ["scripts/*backend*", "scripts/stack_backend/*", "scripts/shielded_relayer_service.py"]},
+        {"id": "node-store", "name": "Node store inspection", "tags": ["storage", "observability"],
+         "paths": ["docker/node-store-inspect/*", "scripts/node_store*", "scripts/export_node_store_snapshot.py",
+                   "scripts/storage-report.py"]},
+        {"id": "graphql", "name": "GraphQL API (PostGraphile)", "tags": ["indexing", "api"],
+         "summary": "Serves the BDS PostgreSQL schema as GraphQL.",
+         "paths": ["docker/postgraphile/*", "docker/postgres/*"]},
+        {"id": "smoke", "name": "Smoke tests", "tags": ["testing"],
+         "paths": ["scripts/smoke*", "scripts/validate-stack.sh"]},
+        {"id": "ops", "name": "Stack tooling", "tags": ["deployment"],
+         "summary": "Node configuration, credentials, status and logging helpers; container entrypoints.",
+         "paths": ["scripts/*", "docker/*"]}
+      ]
+    },
+
+    "xian-cli": {
+      "summary": "Operator CLI for setting up, running and inspecting nodes and networks.",
+      "capabilities": [
+        {"id": "commands", "name": "Operator commands", "tags": ["cli"],
+         "paths": ["src/xian_cli/commands/*", "src/xian_cli/cli.py", "src/xian_cli/parser.py", "src/xian_cli/__main__.py"]},
+        {"id": "client", "name": "Chain client commands", "tags": ["cli", "rpc"],
+         "paths": ["src/xian_cli/client/*"]},
+        {"id": "network", "name": "Network plans & config", "tags": ["config"],
+         "paths": ["src/xian_cli/network_plans.py", "src/xian_cli/config_repo.py",
+                   "src/xian_cli/contract_bundles.py", "src/xian_cli/setup_contract.py"]},
+        {"id": "runtime", "name": "Node runtime bridge", "tags": ["deployment"],
+         "paths": ["src/xian_cli/runtime.py", "src/xian_cli/abci_bridge.py", "src/xian_cli/secret_files.py"]},
+        {"id": "shared", "name": "Models & output", "tags": [],
+         "paths": ["src/xian_cli/*", "scripts/*"]}
+      ]
+    },
+
+    "xian-deploy": {
+      "summary": "Ansible-based deployment of Xian nodes.",
+      "capabilities": [
+        {"id": "ansible", "name": "Ansible plugins & scripts", "tags": ["deployment"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-migration": {
+      "summary": "Offline tooling for legacy-state migration rehearsals.",
+      "capabilities": [
+        {"id": "migration", "name": "State migration", "tags": ["storage"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-linter": {
+      "summary": "Standalone contract linter (library and HTTP service).",
+      "capabilities": [
+        {"id": "linter", "name": "Contract linter", "tags": ["linting", "api"], "paths": ["xian_linter/*"]},
+        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-py": {
+      "summary": "Python SDK for wallets, transactions and node queries.",
+      "capabilities": [
+        {"id": "transactions", "name": "Transaction building", "tags": ["sdk"],
+         "summary": "Build, sign and broadcast transactions; nonces and chi estimates.",
+         "paths": ["src/xian_py/transaction.py", "src/xian_py/nonce.py", "src/xian_py/chi.py"]},
+        {"id": "wallet", "name": "Wallet & keys", "tags": ["wallet", "crypto"],
+         "paths": ["src/xian_py/wallet.py", "src/xian_py/crypto.py"]},
+        {"id": "client", "name": "Node client (sync/async)", "tags": ["sdk", "rpc"],
+         "paths": ["src/xian_py/xian.py", "src/xian_py/xian_async.py", "src/xian_py/_async_helpers.py",
+                   "src/xian_py/run_sync.py", "src/xian_py/application_clients.py", "src/xian_py/projectors.py"]},
+        {"id": "shielded", "name": "Shielded relayer client", "tags": ["zk"],
+         "paths": ["src/xian_py/shielded_relayer.py"]},
+        {"id": "x402", "name": "x402 payments", "tags": ["api"],
+         "paths": ["src/xian_py/x402.py"]},
+        {"id": "shared", "name": "Models & helpers", "tags": ["sdk"],
+         "paths": ["src/xian_py/*", "scripts/*"]}
+      ]
+    },
+
+    "xian-js": {
+      "summary": "TypeScript SDK packages (@xian-tech/*) for dApps, wallets and tools.",
+      "capabilities": [
+        {"id": "compiler", "name": "Compiler loader", "tags": ["compilation"],
+         "summary": "Loads the WASM contract compiler (@xian-tech/compiler).",
+         "paths": ["packages/client/src/compiler*"]},
+        {"id": "shielded", "name": "Shielded & relayer client", "tags": ["zk"],
+         "paths": ["packages/client/src/shielded.ts", "packages/client/src/relayer.ts"]},
+        {"id": "client", "name": "Client (@xian-tech/client)", "tags": ["sdk", "rpc"],
+         "summary": "Transactions, encoding, signing, broadcast and RPC transport.",
+         "paths": ["packages/client/*"]},
+        {"id": "provider", "name": "Wallet provider (@xian-tech/provider)", "tags": ["wallet"],
+         "summary": "dApp-side wallet discovery and request API.",
+         "paths": ["packages/provider/*"]},
+        {"id": "types", "name": "Shared types (@xian-tech/types)", "tags": ["sdk"],
+         "paths": ["packages/types/*"]},
+        {"id": "dex", "name": "DEX SDK (@xian-tech/dex)", "tags": ["dex", "sdk"],
+         "paths": ["packages/dex/*"]},
+        {"id": "web-kit", "name": "Web kit (@xian-tech/web-kit)", "tags": ["ui"],
+         "paths": ["packages/web-kit/*"]},
+        {"id": "tooling", "name": "Build tooling", "tags": ["release"],
+         "paths": ["*"]}
+      ]
+    },
+
+    "xian-wallet-browser": {
+      "summary": "Browser extension wallet.",
+      "capabilities": [
+        {"id": "background", "name": "Background & approvals", "tags": ["wallet"],
+         "summary": "Service worker: request dispatch, approvals, tx submission, auto-lock.",
+         "paths": ["apps/wallet-extension/src/background/*", "apps/wallet-extension/src/approval/*"]},
+        {"id": "page-bridge", "name": "dApp injection", "tags": ["wallet"],
+         "summary": "Inpage provider and content script bridging dApps to the extension.",
+         "paths": ["apps/wallet-extension/src/inpage/*", "apps/wallet-extension/src/content/*"]},
+        {"id": "popup", "name": "Popup UI", "tags": ["ui", "wallet"],
+         "paths": ["apps/wallet-extension/src/popup/*"]},
+        {"id": "wallet-core", "name": "Wallet core", "tags": ["wallet", "crypto"],
+         "summary": "Keys, encryption, signing context, approvals and simulation (@xian-tech/wallet-core).",
+         "paths": ["packages/wallet-core/*"]},
+        {"id": "shared", "name": "Shared & build", "tags": [],
+         "paths": ["*"]}
+      ]
+    },
+
+    "xian-wallet-mobile": {
+      "summary": "React Native mobile wallet.",
+      "capabilities": [
+        {"id": "screens", "name": "Screens & components", "tags": ["ui"],
+         "paths": ["src/screens/*", "src/components/*", "src/navigation/*", "src/theme/*", "*.tsx"]},
+        {"id": "keys", "name": "Wallet, keys & signing", "tags": ["wallet", "crypto"],
+         "paths": ["src/lib/wallet-*", "src/lib/crypto-polyfill.ts", "src/lib/signing-policy.ts",
+                   "src/lib/biometrics.ts"]},
+        {"id": "walletconnect", "name": "WalletConnect", "tags": ["wallet"],
+         "paths": ["src/lib/walletconnect*"]},
+        {"id": "network", "name": "RPC & network", "tags": ["rpc"],
+         "paths": ["src/lib/rpc-client.ts", "src/lib/network-*", "src/lib/operation-queue.ts"]},
+        {"id": "lib", "name": "Tx review, DEX & helpers", "tags": ["wallet"],
+         "paths": ["src/lib/*"]},
+        {"id": "native", "name": "Native shells", "tags": [],
+         "paths": ["android/*", "ios/*", "*"]}
+      ]
+    },
+
+    "xian-bridge": {
+      "summary": "Custodial bridge between Xian and Solana.",
+      "capabilities": [
+        {"id": "api", "name": "HTTP API & pages", "tags": ["api", "ui"],
+         "paths": ["bridge/routes/*", "bridge/main.py", "bridge/presenters.py", "bridge/template_helpers.py"]},
+        {"id": "transfers", "name": "Transfer engine", "tags": ["bridge"],
+         "summary": "Transfer intents and state machine, intake, idempotency, liquidity and worker loop.",
+         "paths": ["bridge/transfers/*", "bridge/intake.py", "bridge/idempotency.py", "bridge/liquidity.py",
+                   "bridge/create_limits.py", "bridge/worker.py"]},
+        {"id": "chains", "name": "Chain adapters", "tags": ["bridge", "crypto", "rpc"],
+         "summary": "Xian and Solana adapters, signers, addresses and amounts.",
+         "paths": ["bridge/blockchain/*", "bridge/signers.py", "bridge/contract.py", "bridge/addresses.py",
+                   "bridge/amounts.py", "bridge/assets.py"]},
+        {"id": "persistence", "name": "Database & migrations", "tags": ["storage"],
+         "paths": ["bridge/database.py", "bridge/db_migrations.py", "bridge/models.py", "alembic/*"]},
+        {"id": "security", "name": "Admin auth & security", "tags": ["security"],
+         "paths": ["bridge/admin_auth.py", "bridge/security.py", "bridge/resume_security.py"]},
+        {"id": "web", "name": "Web frontend", "tags": ["ui"],
+         "paths": ["web/*"]},
+        {"id": "runtime", "name": "Config, logging & runtime", "tags": ["config", "observability"],
+         "paths": ["bridge/*", "scripts/*", "*"]}
+      ]
+    },
+
+    "xian-dex": {
+      "summary": "SnakX DEX: AMM contracts and web app.",
+      "capabilities": [
+        {"id": "contracts", "name": "AMM contracts", "tags": ["dex", "contracts"], "contract": true,
+         "paths": ["src/*"]},
+        {"id": "web-lib", "name": "Trading logic & data", "tags": ["dex"],
+         "paths": ["web/src/lib/*", "web/src/hooks/*"]},
+        {"id": "web-ui", "name": "Web UI", "tags": ["ui", "dex"],
+         "paths": ["web/*"]},
+        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-dex-automation": {
+      "summary": "Rule-based DEX automation service.",
+      "capabilities": [
+        {"id": "service", "name": "Automation service", "tags": ["automation", "dex"],
+         "paths": ["src/*"]},
+        {"id": "contracts", "name": "Automation contract", "tags": ["contracts"], "contract": true,
+         "paths": ["contracts/*"]},
+        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-governance-web": {
+      "summary": "Validator governance web app.",
+      "capabilities": [
+        {"id": "server", "name": "Governance API server", "tags": ["api", "governance"],
+         "paths": ["src/server/*"]},
+        {"id": "client", "name": "Governance UI", "tags": ["ui", "governance"],
+         "paths": ["src/client/*"]},
+        {"id": "shared", "name": "Shared model", "tags": ["governance"],
+         "paths": ["src/shared/*", "*"]}
+      ]
+    },
+
+    "xian-contracting-hub-web": {
+      "summary": "Contract hub: browse, publish, lint and rate contracts (Reflex app).",
+      "capabilities": [
+        {"id": "linting", "name": "Contract linting", "tags": ["linting"],
+         "paths": ["contracting_hub/services/contract_linting.py", "contracting_hub/integrations/xian_linter.py"]},
+        {"id": "integrations", "name": "Integrations", "tags": ["api"],
+         "paths": ["contracting_hub/integrations/*"]},
+        {"id": "services", "name": "Domain services", "tags": ["api"],
+         "paths": ["contracting_hub/services/*"]},
+        {"id": "data", "name": "Models & repositories", "tags": ["storage"],
+         "paths": ["contracting_hub/models/*", "contracting_hub/repositories/*", "migrations/*"]},
+        {"id": "ui", "name": "Pages, states & components", "tags": ["ui"],
+         "paths": ["contracting_hub/pages/*", "contracting_hub/states/*", "contracting_hub/components/*",
+                   "contracting_hub/admin/*"]},
+        {"id": "app", "name": "App shell", "tags": [], "paths": ["*"]}
+      ]
+    },
+
+    "xian-ide-web": {
+      "summary": "Browser IDE for writing, compiling and deploying contracts.",
+      "capabilities": [
+        {"id": "ide", "name": "IDE", "tags": ["ui", "compilation"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-playground-web": {
+      "summary": "In-browser contract playground running the real VM as WASM.",
+      "capabilities": [
+        {"id": "engine", "name": "WASM execution engine", "tags": ["execution"],
+         "summary": "Web worker hosting @xian-tech/vm and @xian-tech/compiler.",
+         "paths": ["src/lib/engine/*"]},
+        {"id": "lib", "name": "Playground model", "tags": [],
+         "paths": ["src/lib/*"]},
+        {"id": "ui", "name": "UI", "tags": ["ui"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-nft": {
+      "summary": "NFT marketplace: contracts and web app.",
+      "capabilities": [
+        {"id": "contracts", "name": "NFT contracts", "tags": ["contracts"], "contract": true,
+         "paths": ["contracts/*"]},
+        {"id": "web", "name": "Web app", "tags": ["ui"], "paths": ["src/*"]},
+        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-contracts": {
+      "summary": "Library of reusable application contracts.",
+      "capabilities": [
+        {"id": "library", "name": "Contract library", "tags": ["contracts"], "contract": true,
+         "summary": "Tokens, staking, lotteries, nameservice, stream payments, shielded adapters ...",
+         "paths": ["contracts/*"]},
+        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-stable-protocol": {
+      "summary": "Stablecoin protocol contracts.",
+      "capabilities": [
+        {"id": "contracts", "name": "Stablecoin contracts", "tags": ["contracts"], "contract": true,
+         "paths": ["contracts/*"]},
+        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-xips": {
+      "summary": "Xian improvement proposals and token-standard reference contracts.",
+      "capabilities": [
+        {"id": "standards", "name": "Standard reference contracts", "tags": ["contracts"], "contract": true,
+         "paths": ["XSC*"]}
+      ]
+    },
+
+    "xian-mcp-server": {
+      "summary": "MCP server exposing chain and DEX tools to AI agents.",
+      "capabilities": [
+        {"id": "dex-tools", "name": "DEX tools", "tags": ["ai", "dex"],
+         "paths": ["dex_tools.py", "dex_plan_registry.py"]},
+        {"id": "server", "name": "MCP server & chain tools", "tags": ["ai", "api"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-tg-bot": {
+      "summary": "Telegram bot with a plugin per command.",
+      "capabilities": [
+        {"id": "plugins", "name": "Command plugins", "tags": ["automation"], "paths": ["plg/*"]},
+        {"id": "core", "name": "Bot core", "tags": ["automation"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-technology-web": {
+      "summary": "Project website (Reflex).",
+      "capabilities": [
+        {"id": "site", "name": "Website", "tags": ["ui", "docs"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-docs-web": {
+      "summary": "Documentation site (VitePress).",
+      "capabilities": [
+        {"id": "site", "name": "Docs site", "tags": ["docs", "ui"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-ai-skills": {
+      "summary": "Agent skills for working with Xian.",
+      "capabilities": [
+        {"id": "skills", "name": "Agent skills", "tags": ["ai"], "paths": ["*"]}
+      ]
+    },
+
+    "xian-intentkit": {
+      "summary": "Exempt fork of IntentKit (AI agent framework) with Xian integrations. Areas are auto-grouped by directory.",
+      "capabilities": []
+    },
+
+    "xian-ai-guides": {
+      "summary": "Written guides for AI agents working with Xian (no source code).",
+      "capabilities": []
+    },
+
+    "xian-meta": {
+      "summary": "Workspace conventions and cross-repo tooling.",
+      "capabilities": [
+        {"id": "tooling", "name": "Workspace tooling", "tags": ["release"], "paths": ["*"]}
+      ]
+    }
+  },
+  "links": [
+    {"from": "cometbft/consensus", "to": "xian-abci/abci-server", "kind": "abci",
+     "label": "ABCI calls over a socket: CheckTx, PrepareProposal, FinalizeBlock, Commit, Query"},
+    {"from": "cometbft/rpc", "to": "cometbft/consensus", "kind": "internal",
+     "label": "broadcast_tx enters the mempool; abci_query is forwarded to the app"},
+    {"from": "xian-py/client", "to": "cometbft/rpc", "kind": "rpc", "label": "JSON-RPC broadcast_tx / abci_query"},
+    {"from": "xian-js/client", "to": "cometbft/rpc", "kind": "rpc", "label": "JSON-RPC broadcast_tx / abci_query"},
+    {"from": "xian-wallet-mobile/network", "to": "cometbft/rpc", "kind": "rpc", "label": "JSON-RPC broadcast_tx / abci_query"},
+    {"from": "xian-bridge/chains", "to": "cometbft/rpc", "kind": "rpc", "label": "Xian adapter broadcasts and queries"},
+    {"from": "xian-bridge/chains", "to": "solana/chain", "kind": "rpc", "label": "Solana JSON-RPC"},
+    {"from": "xian-abci/bds", "to": "postgres/db", "kind": "sql", "label": "Writes indexed blocks, txs and events"},
+    {"from": "xian-stack/graphql", "to": "postgres/db", "kind": "sql", "label": "PostGraphile reads the BDS schema"},
+    {"from": "xian-py/client", "to": "xian-stack/graphql", "kind": "graphql", "label": "BDS GraphQL queries"},
+    {"from": "xian-tg-bot/core", "to": "xian-stack/graphql", "kind": "graphql", "label": "BDS GraphQL queries"},
+    {"from": "xian-mcp-server/server", "to": "xian-stack/graphql", "kind": "graphql", "label": "BDS GraphQL queries"},
+    {"from": "xian-contracting/execution-py", "to": "xian-contracting/vm-bindings", "kind": "native", "label": "PyO3 module xian_vm_core"},
+    {"from": "xian-contracting/storage-py", "to": "xian-contracting/vm-bindings", "kind": "native", "label": "PyO3 LMDB store"},
+    {"from": "xian-js/provider", "to": "xian-wallet-browser/page-bridge", "kind": "postMessage", "label": "dApp requests to the injected wallet"},
+    {"from": "xian-stack/ops", "to": "xian-abci/abci-server", "kind": "runs", "label": "docker-compose runs the ABCI app"},
+    {"from": "xian-stack/ops", "to": "cometbft/consensus", "kind": "runs", "label": "docker-compose runs CometBFT"}
+  ]
+}
