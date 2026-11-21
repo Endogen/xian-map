@@ -51,7 +51,7 @@ sibling repos on disk; a second command tells you what has drifted.
 | Where | Action | Result |
 | --- | --- | --- |
 | Map | Hover a tile | Its links are drawn, unrelated tiles fade. |
-| Map | Click a tile | The details panel opens: summary, languages with line counts, every incoming and outgoing link with file:line evidence, and the file list. |
+| Map | Click a tile | The details panel opens: what the capability does and **why it's here**, languages with line counts, every incoming and outgoing link with file:line evidence, the file list and its repository. **View source** opens its folder on GitHub; every file and every file:line evidence row links to that line on GitHub. |
 | Map | Double-click a tile | Opens it in Focus. |
 | Focus | Click a side card | That capability becomes the centre; **Back** and the breadcrumb return. |
 | Focus | Hover a side card | Highlights its wire. |
@@ -208,6 +208,14 @@ git ls-files (each repo)          capabilities.json            graphify-out/grap
      Brandes-Köpf placement, spline routing around cards). Cycles are cut
      first by our own greedy feedback-arc-set step, which cuts the lightest
      link of a cycle, and ELK lays out the rest.
+7. **Source links.** Each repo's GitHub address comes from its `origin`
+   remote. Only `github.com` remotes are used, and any credentials in them are
+   dropped. A capability's **View source** opens the folder its files share
+   (or its only file) on the default branch. File and evidence links carry line
+   numbers, which are only right at one commit, so they point at the newest
+   commit the repo shares with its upstream: HEAD once pushed, never a local
+   commit GitHub doesn't have. External systems link to the `url` in
+   `capabilities.json`.
 
 ## Keeping the map up to date
 
@@ -232,6 +240,7 @@ python3 build.py           # rebuild the page
 | `<repo>: not listed in capabilities.json` | A repo appeared in the workspace manifest. | Add it under `repos`: with capabilities, or with `"capabilities": []` to keep it grouped by folder on purpose. |
 | `<repo>: graphify graph was built at X, the repo is at Y` | The in-repo call links are older than the code. | From the workspace root: `python3 xian-meta/scripts/graphify_workspace.py refresh --repo <repo>` (omit `--repo` for all). |
 | `<repo>: no graphify graph` | The repo has never been indexed. | Run graphify in that repo (see `xian-meta/docs/CODE_GRAPH_WORKFLOW.md`). |
+| `<repo>: capability <id> has no summary or purpose` | The details panel can't say what it does or why it exists. | Add a one-sentence `summary` (what it does) and `purpose` (why the system needs it). Read the code first; don't guess. |
 
 Repos that the workspace manifest marks `exempt` (such as `xian-intentkit`)
 are not held to graph freshness, because the refresh helper skips them.
@@ -298,6 +307,7 @@ that must not be public.
           "id": "execution",                  // unique within the repo; full id is "xian-abci/execution"
           "name": "Tx & block execution",
           "summary": "What it does, one sentence.",
+          "purpose": "Why the system needs it, one sentence.",
           "tags": ["execution"],
           "paths": ["src/xian/execution_engine.py", "src/xian/processor.py"],
           "contract": false                    // true: count .py files as Xian contracts
@@ -307,6 +317,7 @@ that must not be public.
     "cometbft": {
       "summary": "Outside the workspace, shown for the runtime picture.",
       "external": true,                         // no files; capabilities name their languages instead
+      "url": "https://github.com/cometbft/cometbft",  // optional project page; must be https
       "capabilities": [{ "id": "rpc", "name": "JSON-RPC", "tags": ["rpc"], "languages": ["Go"] }]
     },
     "xian-intentkit": { "summary": "…", "capabilities": [] }  // empty list: grouped by folder on purpose
@@ -326,6 +337,10 @@ Rules, all enforced when the file is loaded:
   `languages` instead.
 - Capability ids are unique, tags must come from `tags`, and `links` must name
   existing capability ids.
+- An external repo's `url` must start with `https://`.
+
+`summary` and `purpose` are not enforced at load time, but `--check` reports
+every capability that lacks either one.
 
 ## Changing the viewer or the generator
 

@@ -8,7 +8,9 @@ needs is in `README.md`; this file only points at the parts that matter most.
   describes, then `python3 build.py`.
 - `capabilities.json` is the only hand-written data. Its format is described
   under **capabilities.json reference**. Verify a new runtime link with a
-  source search before adding it; never invent one.
+  source search before adding it; never invent one. Every capability needs a
+  `summary` (what it does) and a `purpose` (why the system needs it), written
+  from the code, not guessed.
 - Code changes: `build.py` (Python, stdlib only), `viewer/layout.js` (pure
   layout and routing), `viewer/index.html` (the page). Run
   `python3 -m unittest discover -s tests` before committing; it also runs the

@@ -36,6 +36,8 @@ def taxonomy(repos=None, links=None):
                             "id": "exec",
                             "name": "Execution",
                             "tags": ["execution"],
+                            "summary": "Runs transactions.",
+                            "purpose": "Every state change goes through it.",
                             "paths": ["src/core/exec/*"],
                         },
                         {
@@ -59,8 +61,8 @@ def taxonomy(repos=None, links=None):
                     ],
                 },
             },
-            "links": links
-            or [{"from": "chain/rpc", "to": "core/exec", "kind": "abci", "label": "ABCI"}],
+            "links": links if links is not None
+            else [{"from": "chain/rpc", "to": "core/exec", "kind": "abci", "label": "ABCI"}],
         }
     )
 
@@ -111,6 +113,30 @@ class TaxonomyTest(unittest.TestCase):
     def test_link_to_unknown_capability_is_rejected(self):
         with self.assertRaisesRegex(code_map.TaxonomyError, "unknown capability 'core/nope'"):
             taxonomy(links=[{"from": "chain/rpc", "to": "core/nope", "kind": "rpc"}])
+
+    def test_capability_texts_and_an_external_project_url_are_read(self):
+        tax = taxonomy(repos={"chain": {"external": True, "url": "https://github.com/acme/chain", "capabilities": [
+            {"id": "rpc", "name": "RPC", "tags": [], "languages": ["Go"], "summary": "What.", "purpose": "Why."}]}}, links=[])
+        cap = tax.repos["chain"].capabilities[0]
+        self.assertEqual((cap.summary, cap.purpose, tax.repos["chain"].url), ("What.", "Why.", "https://github.com/acme/chain"))
+        self.assertEqual(taxonomy().repos["core"].capabilities[1].purpose, "")
+        self.assertEqual(taxonomy().repos["core"].url, "")
+
+    def test_an_external_project_url_has_to_be_https(self):
+        with self.assertRaisesRegex(code_map.TaxonomyError, "chain: url must start with https://"):
+            taxonomy(repos={"chain": {"external": True, "url": "javascript:alert(1)", "capabilities": []}}, links=[])
+
+    def test_capabilities_without_both_texts_are_findings(self):
+        tax = taxonomy()
+        self.assertEqual(code_map.description_findings(tax), [
+            "core: capability core/store has no summary or purpose (describe it in capabilities.json)",
+            "chain: capability chain/rpc has no summary or purpose (describe it in capabilities.json)",
+        ])
+        tax = taxonomy(repos={"core": {"capabilities": [
+            {"id": "a", "name": "A", "tags": [], "paths": ["*"], "summary": "What."},
+            {"id": "b", "name": "B", "tags": [], "paths": ["*"], "purpose": "Why."},
+            {"id": "c", "name": "C", "tags": [], "paths": ["*"], "summary": "What.", "purpose": "Why."}]}}, links=[])
+        self.assertEqual([line.split()[2] for line in code_map.description_findings(tax)], ["core/a", "core/b"])
 
     def test_external_capability_needs_languages_and_code_capability_needs_paths(self):
         with self.assertRaisesRegex(code_map.TaxonomyError, "chain/rpc needs languages"):
@@ -228,6 +254,29 @@ class EdgeSetTest(unittest.TestCase):
         self.assertEqual(edge["examples"], ["f.py:L0", "f.py:L1"])
 
 
+class GitHubUrlTest(unittest.TestCase):
+    def test_github_remotes_become_plain_https_repo_urls(self):
+        for remote in ("https://github.com/acme/lib.git", "https://github.com/acme/lib", "https://github.com/acme/lib/",
+                       "git@github.com:acme/lib.git", "ssh://git@github.com/acme/lib.git",
+                       "https://x-access-token:secret@github.com/acme/lib.git"):
+            self.assertEqual(code_map.github_url(remote), "https://github.com/acme/lib", remote)
+        self.assertEqual(code_map.github_url("https://github.com/Acme-1/my.repo_x.git"), "https://github.com/Acme-1/my.repo_x")
+
+    def test_anything_else_gets_no_link(self):
+        for remote in ("", "https://gitlab.com/acme/lib.git", "https://github.com.evil.io/acme/lib", "https://github.com/acme",
+                       "https://github.com/acme/lib/tree/main", "/srv/git/lib.git", "https://github.com/acme/lib?x=1"):
+            self.assertIsNone(code_map.github_url(remote), remote)
+
+
+class CapabilityPathTest(unittest.TestCase):
+    def test_a_capability_points_at_the_folder_its_files_share_or_its_only_file(self):
+        self.assertEqual(code_map.capability_path(["src/a/x.py", "src/a/b/y.py"]), "src/a")
+        self.assertEqual(code_map.capability_path(["src/a/x.py", "src/b/y.py"]), "src")
+        self.assertEqual(code_map.capability_path(["src/a/x.py"]), "src/a/x.py")
+        self.assertEqual(code_map.capability_path(["x.py", "src/y.py"]), "")
+        self.assertEqual(code_map.capability_path([]), "")
+
+
 class WorkspaceBuildTest(unittest.TestCase):
     """Builds the map for a two-repo workspace on disk, the way the CLI does."""
 
@@ -295,6 +344,29 @@ class WorkspaceBuildTest(unittest.TestCase):
     def build(self):
         data, _ = code_map.build_map(self.root, code_map.parse_taxonomy(self.taxonomy_raw), self.manifest)
         return data
+
+    def test_repos_link_to_github_and_capabilities_carry_their_texts_and_folder(self):
+        lib = str(self.root / "lib")
+        git = lambda *args: subprocess.run(["git", "-C", lib, "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                                           check=True, capture_output=True, text=True).stdout.strip()
+        subprocess.run(["git", "init", "-q", "--bare", str(self.root / "remote.git")], check=True)
+        git("remote", "add", "origin", str(self.root / "remote.git"))
+        git("push", "-q", "-u", "origin", "HEAD")
+        pushed = git("rev-parse", "HEAD")
+        git("remote", "set-url", "origin", "https://user:token@github.com/acme/lib.git")
+        git("commit", "-q", "--allow-empty", "-m", "not pushed yet")  # GitHub has no such commit
+        self.taxonomy_raw["repos"]["chain"]["url"] = "https://github.com/acme/chain"
+        self.taxonomy_raw["repos"]["lib"]["capabilities"][0].update(summary="Core code.", purpose="Everything uses it.")
+        repos = {repo["name"]: repo for repo in self.build()["repos"]}
+        self.assertEqual((repos["lib"]["url"], repos["lib"]["commit"]), ("https://github.com/acme/lib", pushed))
+        self.assertEqual((repos["app"]["url"], repos["app"]["commit"]), (None, None))
+        self.assertEqual((repos["chain"]["url"], repos["chain"]["commit"]), ("https://github.com/acme/chain", None))
+        caps = {cap["id"]: cap for repo in repos.values() for cap in repo["capabilities"]}
+        self.assertEqual((caps["lib/core"]["summary"], caps["lib/core"]["purpose"], caps["lib/core"]["path"]),
+                         ("Core code.", "Everything uses it.", "src/libpkg"))
+        self.assertEqual((caps["app/web"]["path"], caps["app/main"]["path"], caps["misc/~."]["path"]), ("web/main.ts", "app", "tool.py"))
+        self.assertEqual((caps["chain/rpc"]["purpose"], caps["chain/rpc"]["path"]), ("", ""))
+        self.assertEqual(caps["app/~app/extra"]["purpose"], "")
 
     def test_edges_cover_graph_calls_cross_repo_imports_and_curated_links(self):
         edges = {(e["from"], e["to"], e["kind"]): e for e in self.build()["edges"]}
@@ -418,11 +490,15 @@ class WorkspaceBuildTest(unittest.TestCase):
         self.assertIn("lib: no graphify graph (run graphify for this repo)", report)
         self.assertTrue(any(line.startswith("app: graphify graph was built at unknown") for line in report), report)
         self.assertNotIn("misc: no graphify graph (run graphify for this repo)", report)
-        self.assertEqual(report[-1], "4 findings")
+        self.assertIn("lib: capability lib/js has no summary or purpose (describe it in capabilities.json)", report)
+        self.assertEqual(report[-1], "9 findings")
 
     def test_check_mode_passes_when_nothing_drifted(self):
         self.taxonomy_raw["repos"]["misc"] = {"capabilities": []}
         self.taxonomy_raw["repos"]["app"]["capabilities"].append({"id": "extra", "name": "Extra", "tags": [], "paths": ["app/extra/*"]})
+        for repo in self.taxonomy_raw["repos"].values():
+            for cap in repo["capabilities"]:
+                cap.update(summary="What.", purpose="Why.")
         for repo in ("lib", "app", "misc"):
             head = subprocess.run(["git", "-C", str(self.root / repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
             graph = self.root / repo / "graphify-out/graph.json"
@@ -462,6 +538,7 @@ class WorkspaceBuildTest(unittest.TestCase):
         self.assertPageHas(html, "g.ELK = f()")
         self.assertPageHas(html, "function elkRepoGraph")
         self.assertPageHas(html, '"id":"app/~app/extra"')
+        self.assertPageHas(html, '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,')
         self.assertEqual(json.loads((out / "code-map.json").read_text())["tags"], ["rpc", "sdk", "unmapped"])
         report = stdout.getvalue()
         self.assertIn("app                           77.8% mapped of 9 loc\n", report)

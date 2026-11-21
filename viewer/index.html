@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Xian Map</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%233554d1'/%3E%3Cstop offset='1' stop-color='%238a5cf0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url%28%23g%29'/%3E%3Cg transform='translate%284 4.5%29' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='6' cy='7' r='2.2'/%3E%3Ccircle cx='18' cy='7' r='2.2'/%3E%3Ccircle cx='12' cy='17' r='2.2'/%3E%3Cpath d='M8 8.2 10.6 15M16 8.2 13.4 15M8.2 7h7.6'/%3E%3C/g%3E%3C/svg%3E">
 <style>/*__CODE_MAP_VENDOR_CSS__*/</style>
 <style>
 /* ---- tokens ------------------------------------------------------------- */
@@ -249,7 +250,23 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
 .details-head h2 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
 .details-body { padding: 4px 16px 32px; }
 .details-body h4 { margin: 18px 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
-.details-body .summary { color: var(--ink-2); margin: 12px 0 8px; }
+.details-head .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+a.btn { text-decoration: none; }
+.details-body .summary { color: var(--ink); margin: 14px 0 10px; font-size: 13.5px; line-height: 1.5; }
+.why { margin: 0 0 12px; padding: 8px 11px 9px; border-left: 3px solid var(--accent); background: var(--accent-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--ink-2); font-size: 12.5px; line-height: 1.5; }
+.why b { display: block; margin-bottom: 2px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+.src-link { color: inherit; text-decoration: none; }
+.src-link:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.examples .src-link { color: var(--ink); }
+.repo-card { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); padding: 10px 11px; display: grid; gap: 3px; }
+.repo-card strong { font-size: 13px; }
+.repo-card p { margin: 0; color: var(--ink-2); font-size: 12.5px; }
+.repo-card .links { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 5px; font-size: 12px; }
+.repo-card .links a { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-weight: 500; text-decoration: none; }
+.repo-card .links a:hover { text-decoration: underline; text-underline-offset: 2px; }
+.repo-card .links .icon { width: 13px; height: 13px; }
+.repo-card .links code { font: 11.5px var(--mono); }
 .details-body .tag-cloud { margin-bottom: 10px; }
 .lang-row { display: grid; grid-template-columns: 8px 1fr auto; gap: 8px; align-items: center; margin: 4px 0; }
 .lang-row .num { color: var(--ink-3); font-variant-numeric: tabular-nums; font-size: 12px; }
@@ -304,6 +321,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16M7 12h10M10 19h4"/></symbol>
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
   <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
   <symbol id="i-mark" viewBox="0 0 24 24"><circle cx="6" cy="7" r="2.2"/><circle cx="18" cy="7" r="2.2"/><circle cx="12" cy="17" r="2.2"/><path d="M8 8.2 10.6 15M16 8.2 13.4 15M8.2 7h7.6"/></symbol>
 </svg>
@@ -479,6 +497,8 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   const caps = new Map();
   for (const repo of DATA.repos) for (const cap of repo.capabilities) caps.set(cap.id, { ...cap, repoRef: repo });
   const repos = new Map(DATA.repos.filter((r) => r.capabilities.length).map((r) => [r.name, r]));
+  const allRepos = new Map(DATA.repos.map((r) => [r.name, r]));
+  const repoNames = new Set(allRepos.keys());
   const edges = DATA.edges.filter((e) => caps.has(e.from) && caps.has(e.to)).map((e) => ({ ...e, group: L.groupOf(e.kind) }));
   const outgoing = new Map(), incoming = new Map();
   for (const edge of edges) { push(outgoing, edge.from, edge); push(incoming, edge.to, edge); }
@@ -1115,6 +1135,25 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     rememberLocation();
   }
 
+  // Source links open in a new tab; only GitHub https addresses reach the data.
+  const extLink = (href, className, ...children) => el("a", { href, class: className, target: "_blank", rel: "noopener noreferrer", title: "Opens in a new tab" }, ...children);
+  const linkName = (url) => (url.startsWith("https://github.com/") ? "View on GitHub" : "Project page");
+
+  function evidenceRow(line, edge) {
+    const at = L.evidenceLocation(line, caps.get(edge.from).repo, repoNames);
+    const href = at && allRepos.has(at.repo) ? L.fileUrl(allRepos.get(at.repo), at.path, at.line) : null;
+    if (!href) return el("div", {}, line);
+    return el("div", {}, extLink(href, "src-link", line.slice(0, line.length - at.rest.length).trim()), at.rest ? ` ${at.rest}` : "");
+  }
+
+  function repoCard(repo) {
+    const commit = repo.url && repo.commit ? extLink(`${repo.url}/commit/${repo.commit}`, "", "Built from ", el("code", {}, repo.commit.slice(0, 7))) : null;
+    return el("div", { class: "repo-card" },
+      el("strong", {}, repo.name),
+      repo.summary ? el("p", {}, repo.summary) : null,
+      repo.url ? el("div", { class: "links" }, extLink(repo.url, "", icon("external"), linkName(repo.url)), commit) : null);
+  }
+
   function linkList(list, endKey) {
     if (!list.length) return el("p", { class: "empty" }, "Nothing found.");
     return list.slice().sort((a, b) => b.weight - a.weight).map((edge) => {
@@ -1124,7 +1163,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
           el("span", { class: "target" }, other.name, " ", el("small", {}, other.repo)),
           el("span", { class: `kind ${edge.group}` }, edge.kind),
           el("span", { class: "weight" }, `×${edge.weight}`)),
-        el("div", { class: "examples" }, edge.examples.map((line) => el("div", {}, line))),
+        el("div", { class: "examples" }, edge.examples.map((line) => evidenceRow(line, edge))),
         el("button", { type: "button", class: "goto", onclick: () => (state.mode === "focus" ? focusOn(other.id) : showInMap(other.id, true)) },
           state.mode === "focus" ? "Focus on it →" : "Go to capability →"));
     });
@@ -1136,15 +1175,20 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     if (!cap) return;
     const total = cap.loc || 0;
     const uses = outgoing.get(cap.id) || [], usedBy = incoming.get(cap.id) || [];
+    const repo = cap.repoRef;
+    const source = L.sourceUrl(repo, cap.path);
     panel.scrollTop = 0;
     panel.replaceChildren(
       el("div", { class: "details-head" },
         el("div", { class: "row" }, el("span", { class: "crumb" }, cap.repo),
           el("button", { type: "button", class: "btn ghost icon-only", "aria-label": "Close details", onclick: () => openDetails(null) }, icon("close"))),
         el("h2", {}, cap.name),
-        state.mode === "focus" ? null : el("div", {}, el("button", { type: "button", class: "btn primary", onclick: () => focusOn(cap.id) }, icon("focus"), "Open in focus view"))),
+        el("div", { class: "actions" },
+          state.mode === "focus" ? null : el("button", { type: "button", class: "btn primary", onclick: () => focusOn(cap.id) }, icon("focus"), "Open in focus view"),
+          source ? extLink(source, "btn", icon("external"), repo.external ? linkName(source) : "View source") : null)),
       el("div", { class: "details-body" },
         cap.summary ? el("p", { class: "summary" }, cap.summary) : null,
+        cap.purpose ? el("div", { class: "why" }, el("b", {}, "Why it's here"), cap.purpose) : null,
         el("div", { class: "tag-cloud" }, cap.tags.map((tag) => el("span", { class: "tag" }, tag))),
         el("h4", {}, "Languages"),
         cap.languages.map(([lang, loc]) => el("div", { class: "lang-row" },
@@ -1155,8 +1199,14 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
         el("h4", {}, `Files · ${cap.files.length}`),
         cap.files.length
           ? el("div", { class: "files" }, cap.files.map(([path, lang, loc]) =>
-              el("div", {}, el("span", {}, path), el("span", { style: `color:${langColor(lang)}` }, lang), el("span", {}, String(loc)))))
-          : el("p", { class: "empty" }, "No files in this workspace.")));
+              el("div", {}, el("span", {}, fileLink(repo, path)), el("span", { style: `color:${langColor(lang)}` }, lang), el("span", {}, String(loc)))))
+          : el("p", { class: "empty" }, "No files in this workspace."),
+        el("h4", {}, "Repository"), repoCard(repo)));
+  }
+
+  function fileLink(repo, path) {
+    const href = L.fileUrl(repo, path);
+    return href ? extLink(href, "src-link", path) : path;
   }
 
   // --- modes, theme, navigation ----------------------------------------------

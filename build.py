@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import fnmatch
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -112,6 +113,7 @@ class Capability:
     paths: tuple[str, ...]
     languages: tuple[str, ...]
     contract: bool
+    purpose: str = ""
 
 
 @dataclass(frozen=True)
@@ -120,6 +122,7 @@ class RepoSpec:
     summary: str
     external: bool
     capabilities: tuple[Capability, ...]
+    url: str = ""  # an external system's project page
 
 
 @dataclass(frozen=True)
@@ -148,7 +151,10 @@ def parse_taxonomy(raw: dict) -> Taxonomy:
 def _parse_repo(name: str, spec: dict, tags: set[str]) -> RepoSpec:
     external = bool(spec.get("external", False))
     capabilities = tuple(_parse_capability(name, cap, external, tags) for cap in spec.get("capabilities", []))
-    return RepoSpec(name=name, summary=spec.get("summary", ""), external=external, capabilities=capabilities)
+    url = spec.get("url", "")
+    if url and not url.startswith("https://"):
+        raise TaxonomyError(f"{name}: url must start with https://")
+    return RepoSpec(name=name, summary=spec.get("summary", ""), external=external, capabilities=capabilities, url=url)
 
 
 def _parse_capability(repo: str, spec: dict, external: bool, tags: set[str]) -> Capability:
@@ -171,6 +177,7 @@ def _parse_capability(repo: str, spec: dict, external: bool, tags: set[str]) -> 
         paths=paths,
         languages=languages,
         contract=bool(spec.get("contract", False)),
+        purpose=spec.get("purpose", ""),
     )
 
 
@@ -474,7 +481,7 @@ def capability_records(scan: RepoScan) -> list[dict]:
 
 
 def _curated_record(cap: Capability, files: list) -> dict:
-    record = _record(cap.id, cap.repo, cap.name, cap.summary, list(cap.tags), files)
+    record = _record(cap.id, cap.repo, cap.name, cap.summary, list(cap.tags), files, cap.purpose)
     if not files:
         record["languages"] = [[language, None] for language in cap.languages]
     return record
@@ -485,7 +492,7 @@ def _fallback_record(repo: str, cap_id: str, group: str, files: list) -> dict:
     return _record(cap_id, repo, name, "Not yet described in capabilities.json.", ["unmapped"], files)
 
 
-def _record(cap_id: str, repo: str, name: str, summary: str, tags: list, files: list) -> dict:
+def _record(cap_id: str, repo: str, name: str, summary: str, tags: list, files: list, purpose: str = "") -> dict:
     languages = Counter()
     for _, language, loc in files:
         languages[language] += loc
@@ -494,11 +501,20 @@ def _record(cap_id: str, repo: str, name: str, summary: str, tags: list, files: 
         "repo": repo,
         "name": name,
         "summary": summary,
+        "purpose": purpose,
         "tags": tags,
         "languages": [[language, loc] for language, loc in languages.most_common()],
         "loc": sum(languages.values()),
+        "path": capability_path([path for path, _, _ in files]),
         "files": files,
     }
+
+
+def capability_path(paths: list[str]) -> str:
+    """Where a capability lives: the folder its files share, or its only file."""
+    if len(paths) == 1:
+        return paths[0]
+    return os.path.commonpath(paths) if paths else ""
 
 
 def repo_record(scan: RepoScan, manifest_entry: dict) -> dict:
@@ -509,6 +525,8 @@ def repo_record(scan: RepoScan, manifest_entry: dict) -> dict:
         "external": scan.spec.external,
         "category": "external" if scan.spec.external else manifest_entry.get("category", "uncategorized"),
         "tier": manifest_entry.get("tier", ""),
+        "url": scan.spec.url or None if scan.spec.external else github_url(remote_url(scan.root)),
+        "commit": None if scan.spec.external else published_commit(scan.root),
         "loc": sum(cap["loc"] for cap in capabilities),
         "capabilities": capabilities,
     }
@@ -590,6 +608,38 @@ def repo_findings(scan: RepoScan, curated: bool, head: str, graph_commit: str | 
     return found
 
 
+def description_findings(taxonomy: Taxonomy) -> list[str]:
+    """Capabilities the details panel cannot explain yet: each needs what it does
+    (summary) and why it is there (purpose)."""
+    return [f"{repo.name}: capability {cap.id} has no summary or purpose (describe it in capabilities.json)"
+            for repo in taxonomy.repos.values() for cap in repo.capabilities if not (cap.summary and cap.purpose)]
+
+
+GITHUB_REMOTE = re.compile(r"(?:https://(?:[^@/]+@)?github\.com/|git@github\.com:|ssh://git@github\.com/)([\w.-]+)/([\w.-]+?)(?:\.git)?/?")
+
+
+def github_url(remote: str) -> str | None:
+    """The public https address of a GitHub remote, without credentials; None for
+    anything that is not plainly a GitHub repository."""
+    match = GITHUB_REMOTE.fullmatch(remote)
+    return f"https://github.com/{match[1]}/{match[2]}" if match else None
+
+
+def remote_url(repo_root: Path) -> str:
+    result = subprocess.run(["git", "-C", str(repo_root), "config", "--get", "remote.origin.url"], capture_output=True, text=True)
+    return result.stdout.strip()
+
+
+def published_commit(repo_root: Path) -> str | None:
+    """The newest commit the repo shares with its upstream: HEAD once pushed, never
+    a local commit GitHub does not have. None without an upstream."""
+    for ref in ("@{upstream}", "origin/HEAD"):
+        result = subprocess.run(["git", "-C", str(repo_root), "merge-base", "HEAD", ref], capture_output=True, text=True)
+        if result.returncode == 0:
+            return result.stdout.strip()
+    return None
+
+
 def head_commit(repo_root: Path) -> str:
     result = subprocess.run(["git", "-C", str(repo_root), "rev-parse", "HEAD"], capture_output=True, text=True)
     return result.stdout.strip()
@@ -608,7 +658,7 @@ def check(scans: list[RepoScan], taxonomy: Taxonomy, manifest: dict) -> int:
         if not scan.spec.external
         for line in repo_findings(scan, scan.name in taxonomy.repos, head_commit(scan.root), graph_commit(scan.root),
                                   track_graph=scan.name not in exempt)
-    ]
+    ] + description_findings(taxonomy)
     for line in findings:
         print(line)
     print(f"{len(findings)} findings" if findings else "No findings: the map is up to date.")

@@ -9,27 +9,34 @@
     "cometbft": {
       "summary": "CometBFT consensus engine (Go binary, run by xian-stack). Not in this workspace; shown because every tx passes through it.",
       "external": true,
+      "url": "https://github.com/cometbft/cometbft",
       "capabilities": [
         {"id": "rpc", "name": "JSON-RPC / WebSocket", "tags": ["rpc"], "languages": ["Go"],
-         "summary": "broadcast_tx_*, abci_query, status, block and event subscriptions."},
+         "summary": "broadcast_tx_*, abci_query, status, block and event subscriptions.",
+         "purpose": "The public entry point of a node: wallets, SDKs and services submit transactions and read chain data through it."},
         {"id": "consensus", "name": "Consensus, mempool & P2P", "tags": ["consensus"], "languages": ["Go"],
-         "summary": "BFT consensus, mempool, block store and gossip. Drives the app through ABCI."}
+         "summary": "BFT consensus, mempool, block store and gossip. Drives the app through ABCI.",
+         "purpose": "Orders transactions into blocks and makes validators agree on them; Xian supplies only the application logic behind it."}
       ]
     },
     "postgres": {
       "summary": "PostgreSQL database used by the blockchain data service (BDS).",
       "external": true,
+      "url": "https://github.com/postgres/postgres",
       "capabilities": [
         {"id": "db", "name": "PostgreSQL", "tags": ["storage", "indexing"], "languages": ["SQL"],
-         "summary": "Indexed blocks, txs, events, balances and DEX candles."}
+         "summary": "Indexed blocks, txs, events, balances and DEX candles.",
+         "purpose": "Lets explorers, wallets and the DEX query history and balances quickly instead of replaying the chain."}
       ]
     },
     "solana": {
       "summary": "External chain the bridge settles against.",
       "external": true,
+      "url": "https://github.com/anza-xyz/agave",
       "capabilities": [
         {"id": "chain", "name": "Solana network", "tags": ["bridge", "rpc"], "languages": ["Rust"],
-         "summary": "Reached by xian-bridge over Solana JSON-RPC."}
+         "summary": "Reached by xian-bridge over Solana JSON-RPC.",
+         "purpose": "The other side of the bridge: assets that move between Xian and Solana are held and released there."}
       ]
     },
 
@@ -38,48 +45,62 @@
       "capabilities": [
         {"id": "abci-server", "name": "ABCI server", "tags": ["consensus", "rpc"],
          "summary": "Socket server that speaks the ABCI protocol with CometBFT and dispatches to method handlers.",
+         "purpose": "The only door between consensus and Xian's logic: everything CometBFT decides reaches the chain through it.",
          "paths": ["src/abci/*", "src/xian/xian_abci.py"]},
         {"id": "protobuf", "name": "CometBFT protobuf types", "tags": ["rpc"],
          "summary": "Generated Python protobuf bindings for the CometBFT wire format.",
+         "purpose": "CometBFT speaks protobuf, so the node needs these types to read its messages and answer them.",
          "paths": ["src/tendermint/*", "src/gogoproto/*"]},
         {"id": "methods", "name": "ABCI method handlers", "tags": ["consensus", "execution"],
          "summary": "check_tx, prepare/process_proposal, finalize_block, commit, query, init_chain and their helpers.",
+         "purpose": "Each ABCI call has its own rules (admit a tx, build a block, commit, answer a query); this is where they live.",
          "paths": ["src/xian/methods/*"]},
         {"id": "execution", "name": "Tx & block execution", "tags": ["execution"],
          "summary": "Execution engine, processor, fee and mempool policy, nonces, simulator.",
+         "purpose": "Turns accepted transactions into state changes, with fees and nonces enforced the same way on every validator.",
          "paths": ["src/xian/execution_engine.py", "src/xian/execution_policy.py", "src/xian/processor.py",
                    "src/xian/simulator.py", "src/xian/fee_policy.py", "src/xian/nonce.py",
-                   "src/xian/mempool_policy.py", "src/xian/runtime_features.py",
-                   "src/xian/utils/tx.py", "src/xian/utils/block.py"]},
+                   "src/xian/mempool_policy.py", "src/xian/runtime_features.py", "src/xian/utils/tx.py",
+                   "src/xian/utils/block.py"]},
         {"id": "validators", "name": "Validators & evidence", "tags": ["consensus", "governance"],
          "summary": "Validator set updates, evidence and penalty policy, checkpoint validation.",
+         "purpose": "Keeps the validator set and its penalties on-chain, so who may produce blocks follows protocol rules.",
          "paths": ["src/xian/validators.py", "src/xian/evidence_policy.py", "src/xian/checkpoint_validation.py"]},
         {"id": "state", "name": "State, snapshots & sync", "tags": ["storage"],
          "summary": "State roots, export, snapshots and restore, state sync, full-node store.",
+         "purpose": "New and recovering nodes need the current state without replaying every block; this provides it.",
          "paths": ["src/xian/state_*.py", "src/xian/snapshot_*.py", "src/xian/full_node_store*.py",
                    "src/xian/recovery_genesis.py", "src/xian/services/state_sync.py",
                    "src/xian/services/snapshot_limits.py", "src/xian/utils/state_patches.py"]},
         {"id": "bds", "name": "Blockchain data service", "tags": ["indexing", "storage"],
          "summary": "Indexes blocks, txs and events into PostgreSQL, builds DEX candles, reindexing.",
+         "purpose": "Gives apps and the GraphQL API an indexed history of the chain, which the node's own state store does not keep.",
          "paths": ["src/xian/services/bds/*"]},
         {"id": "genesis", "name": "Genesis builder", "tags": ["config"],
          "summary": "Builds the genesis state from network config and system contracts.",
+         "purpose": "Every network starts from a genesis; this makes it reproducible from config and the system contracts.",
          "paths": ["src/xian/genesis_builder.py"]},
         {"id": "node-config", "name": "Node config & setup", "tags": ["config"],
          "summary": "Node config files, defaults, paths and CometBFT config helpers.",
-         "paths": ["src/xian/node_*.py", "src/xian/config_*.py", "src/xian/constants.py",
-                   "src/xian/toml_utils.py", "src/xian/utils/cometbft.py"]},
+         "purpose": "Keeps node setup consistent, so operators and the CLI produce the same valid configuration.",
+         "paths": ["src/xian/node_*.py", "src/xian/config_*.py", "src/xian/constants.py", "src/xian/toml_utils.py",
+                   "src/xian/utils/cometbft.py"]},
         {"id": "cli", "name": "Node admin CLI", "tags": ["cli"],
          "summary": "Snapshot, export, reindex and node-configuration commands.",
+         "purpose": "Gives operators supported commands for maintenance such as snapshots and reindexing, instead of manual steps.",
          "paths": ["src/xian/cli/*"]},
         {"id": "observability", "name": "Logging, metrics & dashboard", "tags": ["observability", "ui"],
          "summary": "Structured logging, log retention and safety, metrics, perf counters and the node dashboard.",
+         "purpose": "Operators need to see what a running node is doing and how fast; this is how they do.",
          "paths": ["src/xian/app_logging.py", "src/xian/log_*.py", "src/xian/metrics.py", "src/xian/perf.py",
                    "src/xian/dashboard/*"]},
         {"id": "helpers", "name": "Shared helpers", "tags": [],
          "summary": "Encoding, formatting, exceptions and other utilities.",
+         "purpose": "Small building blocks the rest of the node relies on, kept in one place.",
          "paths": ["src/xian/*"]},
         {"id": "scripts", "name": "Dev & release scripts", "tags": ["release"],
+         "summary": "Benchmarks, protobuf generation and repo and release validation scripts.",
+         "purpose": "Keeps the node's generated code current and checks every change and release before it ships.",
          "paths": ["scripts/*", "*.py"]}
       ]
     },
@@ -89,59 +110,86 @@
       "capabilities": [
         {"id": "linting", "name": "Contract linting & conformance", "tags": ["linting", "compilation"],
          "summary": "Python-side lint rules, whitelists and conformance checks for contract source.",
+         "purpose": "Rejects contract code the chain would refuse before it is deployed, with the same rules on every side.",
          "paths": ["src/contracting/compilation/linter.py", "src/contracting/compilation/whitelists.py",
                    "src/contracting/compilation/*conformance.py"]},
         {"id": "compiler-py", "name": "Compilation pipeline (Python)", "tags": ["compilation"],
          "summary": "Parser, IR, lowering and artifacts; hands off to the Rust compiler core.",
+         "purpose": "Turns contract source into the artifacts the VM runs; every deployment goes through it.",
          "paths": ["src/contracting/compilation/*", "src/contracting/compiler/*", "src/contracting/artifacts/*"]},
         {"id": "compiler-core", "name": "Compiler core", "tags": ["compilation", "linting"],
          "summary": "Rust compiler frontend, IR, lint and hashing; shipped to Python (PyO3) and to JS as @xian-tech/compiler (WASM).",
+         "purpose": "One compiler for Python, the browser and validators, so a contract compiles the same everywhere.",
          "paths": ["packages/xian-compiler-core/*"]},
         {"id": "vm-bindings", "name": "VM bindings (Python & WASM)", "tags": ["execution"],
          "summary": "PyO3 and WASM entry points into the VM, published as xian_vm_core and @xian-tech/vm.",
+         "purpose": "Lets the Python node and the browser tools run the same Rust VM.",
          "paths": ["packages/xian-vm-core/src/*python*.rs", "packages/xian-vm-core/src/wasm_bindings.rs",
                    "packages/xian-vm-core/python/*", "packages/xian-vm-core/npm/*"]},
         {"id": "vm-block", "name": "VM block executor & host", "tags": ["execution"],
          "summary": "Block/bundle executor, tx admission and inputs, settlement, rewards, deploy and host calls.",
+         "purpose": "Runs a whole block deterministically and settles fees and rewards: the heart of transaction execution.",
          "paths": ["packages/xian-vm-core/src/block_*", "packages/xian-vm-core/src/bundle_executor.rs",
                    "packages/xian-vm-core/src/settlement.rs", "packages/xian-vm-core/src/transaction_*",
                    "packages/xian-vm-core/src/tx_rewards.rs"]},
         {"id": "vm-metering", "name": "Metering (chi)", "tags": ["execution"],
          "summary": "Work metering and chi accounting.",
+         "purpose": "Every operation costs chi, which stops runaway contracts and is how fees are charged.",
          "paths": ["packages/xian-vm-core/src/metering.rs", "packages/xian-vm-core/src/work_meter.rs"]},
         {"id": "vm-storage", "name": "VM state storage", "tags": ["storage"],
          "summary": "LMDB environment, committed and in-memory stores, stored-value encoding, state roots.",
+         "purpose": "Contracts need persistent, verifiable state; this stores it and computes the state root validators agree on.",
          "paths": ["packages/xian-vm-core/src/lmdb_*", "packages/xian-vm-core/src/*_store.rs",
                    "packages/xian-vm-core/src/foreign_storage.rs", "packages/xian-vm-core/src/storage_*",
                    "packages/xian-vm-core/src/stored_value*", "packages/xian-vm-core/src/state_*"]},
         {"id": "vm-sandbox", "name": "VM sandbox", "tags": ["execution", "security"],
+         "summary": "An in-memory chain that runs transactions one at a time with the block executor's rules.",
+         "purpose": "Lets the browser playground and tests run real contracts without a node.",
          "paths": ["packages/xian-vm-core/src/sandbox/*"]},
         {"id": "numeric", "name": "Numeric & decimal semantics", "tags": ["execution"],
+         "summary": "Exact integer and decimal parsing, formatting and rounding rules for the VM.",
+         "purpose": "Money math has to give identical results on every machine; floating point can't, these rules do.",
          "paths": ["packages/xian-numeric/*", "packages/xian-vm-core/src/decimal_*",
                    "packages/xian-vm-core/src/numeric_*", "packages/xian-vm-core/src/rounding.rs"]},
         {"id": "zk", "name": "Zero-knowledge proofs", "tags": ["zk", "crypto"],
          "summary": "Proof verification and shielded-pool support (Rust core plus Python wrapper).",
+         "purpose": "Makes private (shielded) transfers possible on a public chain by checking proofs instead of revealing amounts.",
          "paths": ["packages/xian-zk/*", "packages/xian-vm-core/src/zk_*"]},
         {"id": "vm-interpreter", "name": "VM interpreter & builtins", "tags": ["execution"],
          "summary": "Interpreter, expression/statement evaluation, builtins, values and string handling.",
+         "purpose": "Executes contract code itself; everything a contract does runs through it.",
          "paths": ["packages/xian-vm-core/*"]},
         {"id": "fastpath", "name": "Fastpath core", "tags": ["execution"],
+         "summary": "Decodes the transaction wire format and applies the stateless admission rules: keys, formats, signature, chain id.",
+         "purpose": "Rejects malformed or badly signed transactions cheaply, before any state is touched.",
          "paths": ["packages/xian-fastpath-core/*"]},
         {"id": "runtime-types", "name": "Runtime types", "tags": ["execution"],
+         "summary": "Deterministic decimal, datetime, set and encoding types shared across the stack.",
+         "purpose": "Values must look and behave the same in the node, the SDKs and the tools; these types make sure they do.",
          "paths": ["packages/xian-runtime-types/*"]},
         {"id": "accounts", "name": "Accounts & keys", "tags": ["crypto"],
+         "summary": "Ed25519 key generation, signing and verification.",
+         "purpose": "Xian accounts are Ed25519 keys; every signature check and wallet builds on this.",
          "paths": ["packages/xian-accounts/*"]},
         {"id": "storage-py", "name": "Contract storage driver", "tags": ["storage"],
          "summary": "Python storage driver and ORM over the native LMDB store.",
+         "purpose": "Gives Python code (the node, tools, tests) access to the contract state the native VM stores.",
          "paths": ["src/contracting/storage/*"]},
         {"id": "execution-py", "name": "Execution client", "tags": ["execution"],
          "summary": "Python execution API and local client on top of the native VM.",
+         "purpose": "Lets Python callers such as the node and the tests run transactions on the native VM.",
          "paths": ["src/contracting/execution/*", "src/contracting/local/*"]},
         {"id": "stdlib", "name": "Contract stdlib & crypto bridge", "tags": ["execution", "crypto"],
+         "summary": "Declares the names contracts may use (types, hashing, crypto, zk) for the compiler and tooling.",
+         "purpose": "Defines what a contract is allowed to call, so the compiler and linters agree with the VM.",
          "paths": ["src/contracting/stdlib/*"]},
         {"id": "core", "name": "Package core", "tags": [],
+         "summary": "Package constants, names, runtime feature flags and the built-in submission contract.",
+         "purpose": "Shared definitions the rest of the contracting package depends on.",
          "paths": ["src/contracting/*"]},
         {"id": "scripts", "name": "Build & release scripts", "tags": ["release"],
+         "summary": "Metering calibration, compiler parity audits and generators for test vectors and tables.",
+         "purpose": "Keeps chi costs calibrated and the Python, Rust and WASM paths in agreement.",
          "paths": ["scripts/*"]}
       ]
     },
@@ -151,8 +199,11 @@
       "capabilities": [
         {"id": "genesis-contracts", "name": "System contracts", "tags": ["contracts", "governance"], "contract": true,
          "summary": "currency, validators, governance, rewards, chi_cost, dao, vault, zk_registry, token factory ...",
+         "purpose": "These contracts are the protocol's own rules (currency, validators, governance, fees) and ship in every genesis.",
          "paths": ["contracts/*"]},
         {"id": "scripts", "name": "Config tooling", "tags": ["config"],
+         "summary": "Validates network manifests and generates token-factory artifacts and mainnet allocations.",
+         "purpose": "Catches a broken network config before a network is launched from it.",
          "paths": ["scripts/*"]}
       ]
     },
@@ -162,28 +213,39 @@
       "capabilities": [
         {"id": "localnet", "name": "Localnet orchestration & checks", "tags": ["testing"],
          "summary": "Multi-node localnet setup, e2e phases and protocol safety checks.",
+         "purpose": "Proves the whole stack works together, multi-node safety included, before a release.",
          "paths": ["scripts/localnet*", "scripts/e2e_*", "scripts/state_convergence_helpers.py",
                    "scripts/contract_suite_cases.py", "scripts/governance_vote_helpers.py",
                    "scripts/replay_corpus_bridge.py"]},
         {"id": "workloads", "name": "Workloads & benchmarks", "tags": ["testing"],
+         "summary": "Contract suites and DEX traffic that exercise and benchmark a running network.",
+         "purpose": "Realistic load to test correctness and performance against.",
          "paths": ["workloads/*"]},
         {"id": "release", "name": "Release engineering", "tags": ["release"],
          "summary": "Release manifests and orchestration, reproducibility verification, trusted publishers.",
+         "purpose": "Makes releases reproducible and verifiable, so operators run exactly what was built.",
          "paths": ["scripts/release*", "scripts/verify_release_reproducibility.py", "scripts/trusted_publishers.py",
                    "scripts/export_python_runtime_requirements.py"]},
         {"id": "backends", "name": "Service backends", "tags": ["deployment"],
          "summary": "Backends for stack services (dex automation, intentkit, shielded relayer, ...).",
+         "purpose": "Runs the optional services next to a node, in the same stack.",
          "paths": ["scripts/*backend*", "scripts/stack_backend/*", "scripts/shielded_relayer_service.py"]},
         {"id": "node-store", "name": "Node store inspection", "tags": ["storage", "observability"],
+         "summary": "Inspects and exports a node's stored state and checks checkpoints and evidence in a stopped store.",
+         "purpose": "Lets operators confirm a node's data is consistent before restoring or sharing it.",
          "paths": ["docker/node-store-inspect/*", "scripts/node_store*", "scripts/export_node_store_snapshot.py",
                    "scripts/storage-report.py"]},
         {"id": "graphql", "name": "GraphQL API (PostGraphile)", "tags": ["indexing", "api"],
          "summary": "Serves the BDS PostgreSQL schema as GraphQL.",
+         "purpose": "Gives apps a ready-made query API over indexed chain data, without writing their own server.",
          "paths": ["docker/postgraphile/*", "docker/postgres/*"]},
         {"id": "smoke", "name": "Smoke tests", "tags": ["testing"],
+         "summary": "Quick end-to-end checks that the stack and the CLI start and respond.",
+         "purpose": "Catches a broken stack in seconds rather than after a full e2e run.",
          "paths": ["scripts/smoke*", "scripts/validate-stack.sh"]},
         {"id": "ops", "name": "Stack tooling", "tags": ["deployment"],
          "summary": "Node configuration, credentials, status and logging helpers; container entrypoints.",
+         "purpose": "The glue that starts and configures the containers; running a node depends on it.",
          "paths": ["scripts/*", "docker/*"]}
       ]
     },
@@ -192,15 +254,26 @@
       "summary": "Operator CLI for setting up, running and inspecting nodes and networks.",
       "capabilities": [
         {"id": "commands", "name": "Operator commands", "tags": ["cli"],
-         "paths": ["src/xian_cli/commands/*", "src/xian_cli/cli.py", "src/xian_cli/parser.py", "src/xian_cli/__main__.py"]},
+         "summary": "Setup, node, network and recovery commands for operators.",
+         "purpose": "The main way operators create and run nodes and networks.",
+         "paths": ["src/xian_cli/commands/*", "src/xian_cli/cli.py", "src/xian_cli/parser.py",
+                   "src/xian_cli/__main__.py"]},
         {"id": "client", "name": "Chain client commands", "tags": ["cli", "rpc"],
+         "summary": "Commands that query the chain and send transactions.",
+         "purpose": "Lets operators check and use a chain from the terminal, without another tool.",
          "paths": ["src/xian_cli/client/*"]},
         {"id": "network", "name": "Network plans & config", "tags": ["config"],
-         "paths": ["src/xian_cli/network_plans.py", "src/xian_cli/config_repo.py",
-                   "src/xian_cli/contract_bundles.py", "src/xian_cli/setup_contract.py"]},
+         "summary": "Network plans, config repository access and the contract bundles for a genesis.",
+         "purpose": "Turns a network definition into the files and contracts a node needs.",
+         "paths": ["src/xian_cli/network_plans.py", "src/xian_cli/config_repo.py", "src/xian_cli/contract_bundles.py",
+                   "src/xian_cli/setup_contract.py"]},
         {"id": "runtime", "name": "Node runtime bridge", "tags": ["deployment"],
+         "summary": "Starts and supervises the node processes and handles secret files.",
+         "purpose": "Connects the CLI to xian-abci, so one command runs a node.",
          "paths": ["src/xian_cli/runtime.py", "src/xian_cli/abci_bridge.py", "src/xian_cli/secret_files.py"]},
         {"id": "shared", "name": "Models & output", "tags": [],
+         "summary": "Data models, output formatting, the installer and a release smoke test.",
+         "purpose": "Shared pieces every command uses.",
          "paths": ["src/xian_cli/*", "scripts/*"]}
       ]
     },
@@ -208,22 +281,34 @@
     "xian-deploy": {
       "summary": "Ansible-based deployment of Xian nodes.",
       "capabilities": [
-        {"id": "ansible", "name": "Ansible plugins & scripts", "tags": ["deployment"], "paths": ["*"]}
+        {"id": "ansible", "name": "Ansible plugins & scripts", "tags": ["deployment"],
+         "summary": "Ansible filter plugin and snapshot-archive validation used by the playbooks.",
+         "purpose": "Deploys released node images to remote hosts the same way every time.",
+         "paths": ["*"]}
       ]
     },
 
     "xian-migration": {
       "summary": "Offline tooling for legacy-state migration rehearsals.",
       "capabilities": [
-        {"id": "migration", "name": "State migration", "tags": ["storage"], "paths": ["*"]}
+        {"id": "migration", "name": "State migration", "tags": ["storage"],
+         "summary": "Recovers legacy contract source, recompiles it and carries state and nonces into a new genesis.",
+         "purpose": "Rehearses moving the legacy network's state to the new engine, offline and verifiably.",
+         "paths": ["*"]}
       ]
     },
 
     "xian-linter": {
       "summary": "Standalone contract linter (library and HTTP service).",
       "capabilities": [
-        {"id": "linter", "name": "Contract linter", "tags": ["linting", "api"], "paths": ["xian_linter/*"]},
-        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+        {"id": "linter", "name": "Contract linter", "tags": ["linting", "api"],
+         "summary": "Lints contract source with PyFlakes plus the compiler core's diagnostics, as a library and an HTTP service.",
+         "purpose": "Gives editors and the contract hub the exact errors the chain would raise, before anything is deployed.",
+         "paths": ["xian_linter/*"]},
+        {"id": "scripts", "name": "Scripts", "tags": ["release"],
+         "summary": "Release context helper and a sample contract.",
+         "purpose": "Supports releasing the linter.",
+         "paths": ["*"]}
       ]
     },
 
@@ -232,17 +317,28 @@
       "capabilities": [
         {"id": "transactions", "name": "Transaction building", "tags": ["sdk"],
          "summary": "Build, sign and broadcast transactions; nonces and chi estimates.",
+         "purpose": "Every Python app that writes to the chain needs correctly signed, correctly priced transactions.",
          "paths": ["src/xian_py/transaction.py", "src/xian_py/nonce.py", "src/xian_py/chi.py"]},
         {"id": "wallet", "name": "Wallet & keys", "tags": ["wallet", "crypto"],
+         "summary": "Ed25519 wallets, key derivation and message signing.",
+         "purpose": "Holds the keys Python apps sign with.",
          "paths": ["src/xian_py/wallet.py", "src/xian_py/crypto.py"]},
         {"id": "client", "name": "Node client (sync/async)", "tags": ["sdk", "rpc"],
+         "summary": "Synchronous and asynchronous clients for node RPC, queries and indexed data.",
+         "purpose": "How Python apps, bots and services read the chain.",
          "paths": ["src/xian_py/xian.py", "src/xian_py/xian_async.py", "src/xian_py/_async_helpers.py",
                    "src/xian_py/run_sync.py", "src/xian_py/application_clients.py", "src/xian_py/projectors.py"]},
         {"id": "shielded", "name": "Shielded relayer client", "tags": ["zk"],
+         "summary": "Client for the shielded relayer service.",
+         "purpose": "Lets Python apps send private transactions without paying fees from a public account.",
          "paths": ["src/xian_py/shielded_relayer.py"]},
         {"id": "x402", "name": "x402 payments", "tags": ["api"],
+         "summary": "x402 HTTP payment requests and payment proofs.",
+         "purpose": "Lets services charge per request in Xian tokens, for example AI agents paying for an API.",
          "paths": ["src/xian_py/x402.py"]},
         {"id": "shared", "name": "Models & helpers", "tags": ["sdk"],
+         "summary": "Models, formatting, config and validation helpers.",
+         "purpose": "Shared pieces the rest of the SDK uses.",
          "paths": ["src/xian_py/*", "scripts/*"]}
       ]
     },
@@ -252,22 +348,35 @@
       "capabilities": [
         {"id": "compiler", "name": "Compiler loader", "tags": ["compilation"],
          "summary": "Loads the WASM contract compiler (@xian-tech/compiler).",
+         "purpose": "Lets web apps compile and check contracts with the same compiler validators use.",
          "paths": ["packages/client/src/compiler*"]},
         {"id": "shielded", "name": "Shielded & relayer client", "tags": ["zk"],
+         "summary": "Shielded note handling and the relayer client for TypeScript apps.",
+         "purpose": "Brings private transfers to web apps and wallets.",
          "paths": ["packages/client/src/shielded.ts", "packages/client/src/relayer.ts"]},
         {"id": "client", "name": "Client (@xian-tech/client)", "tags": ["sdk", "rpc"],
          "summary": "Transactions, encoding, signing, broadcast and RPC transport.",
+         "purpose": "The base every TypeScript app, wallet and tool uses to talk to the chain.",
          "paths": ["packages/client/*"]},
         {"id": "provider", "name": "Wallet provider (@xian-tech/provider)", "tags": ["wallet"],
          "summary": "dApp-side wallet discovery and request API.",
+         "purpose": "Lets any dApp talk to any Xian wallet through one standard API.",
          "paths": ["packages/provider/*"]},
         {"id": "types", "name": "Shared types (@xian-tech/types)", "tags": ["sdk"],
+         "summary": "Shared TypeScript types for signing, fixed-point numbers and nonces.",
+         "purpose": "Keeps the packages in agreement on the shape of their data.",
          "paths": ["packages/types/*"]},
         {"id": "dex", "name": "DEX SDK (@xian-tech/dex)", "tags": ["dex", "sdk"],
+         "summary": "Routing, quotes and swap execution against the DEX contracts.",
+         "purpose": "Lets apps, wallets and bots trade without re-implementing AMM math.",
          "paths": ["packages/dex/*"]},
         {"id": "web-kit", "name": "Web kit (@xian-tech/web-kit)", "tags": ["ui"],
+         "summary": "React hooks and helpers for wallets, RPC, formatting and toasts.",
+         "purpose": "A shared starting point, so Xian web apps behave the same way.",
          "paths": ["packages/web-kit/*"]},
         {"id": "tooling", "name": "Build tooling", "tags": ["release"],
+         "summary": "Release, smoke and packaging scripts and test config.",
+         "purpose": "Checks that the published packages install and work.",
          "paths": ["*"]}
       ]
     },
@@ -277,16 +386,23 @@
       "capabilities": [
         {"id": "background", "name": "Background & approvals", "tags": ["wallet"],
          "summary": "Service worker: request dispatch, approvals, tx submission, auto-lock.",
+         "purpose": "Every signature passes through here, so the user approves exactly what a dApp asks for.",
          "paths": ["apps/wallet-extension/src/background/*", "apps/wallet-extension/src/approval/*"]},
         {"id": "page-bridge", "name": "dApp injection", "tags": ["wallet"],
          "summary": "Inpage provider and content script bridging dApps to the extension.",
+         "purpose": "Lets websites find and talk to the wallet without ever seeing its keys.",
          "paths": ["apps/wallet-extension/src/inpage/*", "apps/wallet-extension/src/content/*"]},
         {"id": "popup", "name": "Popup UI", "tags": ["ui", "wallet"],
+         "summary": "The extension's UI: assets, activity, sending, trading and settings.",
+         "purpose": "Where users see and manage their wallet.",
          "paths": ["apps/wallet-extension/src/popup/*"]},
         {"id": "wallet-core", "name": "Wallet core", "tags": ["wallet", "crypto"],
          "summary": "Keys, encryption, signing context, approvals and simulation (@xian-tech/wallet-core).",
+         "purpose": "Wallet logic shared by the browser and mobile wallets, so keys and approvals work the same in both.",
          "paths": ["packages/wallet-core/*"]},
         {"id": "shared", "name": "Shared & build", "tags": [],
+         "summary": "Storage, messaging and the build setup for the extension.",
+         "purpose": "Glue between the extension's parts.",
          "paths": ["*"]}
       ]
     },
@@ -295,17 +411,29 @@
       "summary": "React Native mobile wallet.",
       "capabilities": [
         {"id": "screens", "name": "Screens & components", "tags": ["ui"],
+         "summary": "Home, activity, trade, apps, setup and settings screens, with navigation and theme.",
+         "purpose": "The mobile wallet's user interface.",
          "paths": ["src/screens/*", "src/components/*", "src/navigation/*", "src/theme/*", "*.tsx"]},
         {"id": "keys", "name": "Wallet, keys & signing", "tags": ["wallet", "crypto"],
+         "summary": "Wallet controller, backup, key derivation, biometrics and signing policy.",
+         "purpose": "Keeps keys safe on the phone and decides what may be signed.",
          "paths": ["src/lib/wallet-*", "src/lib/crypto-polyfill.ts", "src/lib/signing-policy.ts",
                    "src/lib/biometrics.ts"]},
         {"id": "walletconnect", "name": "WalletConnect", "tags": ["wallet"],
+         "summary": "WalletConnect sessions and request policy.",
+         "purpose": "Lets desktop dApps use the phone wallet for signing.",
          "paths": ["src/lib/walletconnect*"]},
         {"id": "network", "name": "RPC & network", "tags": ["rpc"],
+         "summary": "RPC client, network security checks and an operation queue.",
+         "purpose": "Talks to nodes safely, even over unreliable mobile connections.",
          "paths": ["src/lib/rpc-client.ts", "src/lib/network-*", "src/lib/operation-queue.ts"]},
         {"id": "lib", "name": "Tx review, DEX & helpers", "tags": ["wallet"],
+         "summary": "Storage, DEX, activity, notification and asset helpers.",
+         "purpose": "The logic behind the screens.",
          "paths": ["src/lib/*"]},
         {"id": "native", "name": "Native shells", "tags": [],
+         "summary": "Android and iOS app shells and the app entry point.",
+         "purpose": "Packages the React Native app for both platforms.",
          "paths": ["android/*", "ios/*", "*"]}
       ]
     },
@@ -314,22 +442,34 @@
       "summary": "Custodial bridge between Xian and Solana.",
       "capabilities": [
         {"id": "api", "name": "HTTP API & pages", "tags": ["api", "ui"],
+         "summary": "Public and admin HTTP routes and server-rendered pages.",
+         "purpose": "Where users start transfers and admins operate the bridge.",
          "paths": ["bridge/routes/*", "bridge/main.py", "bridge/presenters.py", "bridge/template_helpers.py"]},
         {"id": "transfers", "name": "Transfer engine", "tags": ["bridge"],
          "summary": "Transfer intents and state machine, intake, idempotency, liquidity and worker loop.",
+         "purpose": "Moves funds exactly once, even when a step fails or is retried.",
          "paths": ["bridge/transfers/*", "bridge/intake.py", "bridge/idempotency.py", "bridge/liquidity.py",
                    "bridge/create_limits.py", "bridge/worker.py"]},
         {"id": "chains", "name": "Chain adapters", "tags": ["bridge", "crypto", "rpc"],
          "summary": "Xian and Solana adapters, signers, addresses and amounts.",
+         "purpose": "Talks to each chain and signs the transfers that release funds.",
          "paths": ["bridge/blockchain/*", "bridge/signers.py", "bridge/contract.py", "bridge/addresses.py",
                    "bridge/amounts.py", "bridge/assets.py"]},
         {"id": "persistence", "name": "Database & migrations", "tags": ["storage"],
+         "summary": "Database models, sessions and Alembic migrations.",
+         "purpose": "Keeps transfer state durable, so the bridge can recover after a crash.",
          "paths": ["bridge/database.py", "bridge/db_migrations.py", "bridge/models.py", "alembic/*"]},
         {"id": "security", "name": "Admin auth & security", "tags": ["security"],
+         "summary": "Admin authentication, request security checks and resume protection.",
+         "purpose": "Protects the custodied funds and the admin actions from abuse.",
          "paths": ["bridge/admin_auth.py", "bridge/security.py", "bridge/resume_security.py"]},
         {"id": "web", "name": "Web frontend", "tags": ["ui"],
+         "summary": "Browser frontend for transfers, wallets and admin views.",
+         "purpose": "The UI on top of the API, for users and admins.",
          "paths": ["web/*"]},
         {"id": "runtime", "name": "Config, logging & runtime", "tags": ["config", "observability"],
+         "summary": "Configuration, logging, the service loop and smoke scripts.",
+         "purpose": "Runs and configures the bridge service.",
          "paths": ["bridge/*", "scripts/*", "*"]}
       ]
     },
@@ -338,12 +478,21 @@
       "summary": "SnakX DEX: AMM contracts and web app.",
       "capabilities": [
         {"id": "contracts", "name": "AMM contracts", "tags": ["dex", "contracts"], "contract": true,
+         "summary": "Pair, router, LP token and helper contracts of the constant-product AMM.",
+         "purpose": "The exchange itself: swaps and liquidity happen in these contracts.",
          "paths": ["src/*"]},
         {"id": "web-lib", "name": "Trading logic & data", "tags": ["dex"],
+         "summary": "Swap and liquidity math, candles, tokens and transaction history.",
+         "purpose": "The app's quoting and trading logic, kept apart from the UI.",
          "paths": ["web/src/lib/*", "web/src/hooks/*"]},
         {"id": "web-ui", "name": "Web UI", "tags": ["ui", "dex"],
+         "summary": "Swap, pools, liquidity, pair and portfolio pages with candlestick charts.",
+         "purpose": "Where users trade on SnakX.",
          "paths": ["web/*"]},
-        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+        {"id": "scripts", "name": "Scripts", "tags": ["release"],
+         "summary": "Contract validation and DEX bootstrap scripts.",
+         "purpose": "Deploys and checks a DEX on a new network.",
+         "paths": ["*"]}
       ]
     },
 
@@ -351,10 +500,17 @@
       "summary": "Rule-based DEX automation service.",
       "capabilities": [
         {"id": "service", "name": "Automation service", "tags": ["automation", "dex"],
+         "summary": "Watches pair events, evaluates rules and executes swaps, with an admin API and UI.",
+         "purpose": "Runs trading rules such as limit orders without anyone at the keyboard.",
          "paths": ["src/*"]},
         {"id": "contracts", "name": "Automation contract", "tags": ["contracts"], "contract": true,
+         "summary": "Strategy vault contract that holds the automation's funds.",
+         "purpose": "Keeps automated trading funds in a contract with limits, not only in a hot wallet.",
          "paths": ["contracts/*"]},
-        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+        {"id": "scripts", "name": "Scripts", "tags": ["release"],
+         "summary": "Vault bootstrap and recovery smoke scripts.",
+         "purpose": "Sets up and tests the automation on a network.",
+         "paths": ["*"]}
       ]
     },
 
@@ -362,10 +518,16 @@
       "summary": "Validator governance web app.",
       "capabilities": [
         {"id": "server", "name": "Governance API server", "tags": ["api", "governance"],
+         "summary": "API server that reads proposals, votes and validators from the chain.",
+         "purpose": "Gives the console one place to get governance data from.",
          "paths": ["src/server/*"]},
         {"id": "client", "name": "Governance UI", "tags": ["ui", "governance"],
+         "summary": "Console UI for proposals, voting, validators and state patches.",
+         "purpose": "Lets validators govern the network from a browser.",
          "paths": ["src/client/*"]},
         {"id": "shared", "name": "Shared model", "tags": ["governance"],
+         "summary": "Shared types, formatting and state-patch hashing.",
+         "purpose": "Keeps server and UI in agreement, for example on the state-patch hashes they verify.",
          "paths": ["src/shared/*", "*"]}
       ]
     },
@@ -374,24 +536,40 @@
       "summary": "Contract hub: browse, publish, lint and rate contracts (Reflex app).",
       "capabilities": [
         {"id": "linting", "name": "Contract linting", "tags": ["linting"],
+         "summary": "Lints submitted contracts with xian-linter.",
+         "purpose": "Keeps broken contracts out of the hub.",
          "paths": ["contracting_hub/services/contract_linting.py", "contracting_hub/integrations/xian_linter.py"]},
         {"id": "integrations", "name": "Integrations", "tags": ["api"],
+         "summary": "Storage and playground integrations.",
+         "purpose": "Connects the hub to file storage and the browser playground.",
          "paths": ["contracting_hub/integrations/*"]},
         {"id": "services", "name": "Domain services", "tags": ["api"],
+         "summary": "Catalog, contract detail, import, package and admin services.",
+         "purpose": "The hub's business logic.",
          "paths": ["contracting_hub/services/*"]},
         {"id": "data", "name": "Models & repositories", "tags": ["storage"],
+         "summary": "Database models, repositories and migrations.",
+         "purpose": "Stores contracts as immutable versions, with their ratings and packages.",
          "paths": ["contracting_hub/models/*", "contracting_hub/repositories/*", "migrations/*"]},
         {"id": "ui", "name": "Pages, states & components", "tags": ["ui"],
+         "summary": "Reflex pages, state and components, the admin included.",
+         "purpose": "Where developers browse contracts and admins curate them.",
          "paths": ["contracting_hub/pages/*", "contracting_hub/states/*", "contracting_hub/components/*",
                    "contracting_hub/admin/*"]},
-        {"id": "app", "name": "App shell", "tags": [], "paths": ["*"]}
+        {"id": "app", "name": "App shell", "tags": [],
+         "summary": "App setup, config, theme, database and hosting.",
+         "purpose": "Starts and configures the hub.",
+         "paths": ["*"]}
       ]
     },
 
     "xian-ide-web": {
       "summary": "Browser IDE for writing, compiling and deploying contracts.",
       "capabilities": [
-        {"id": "ide", "name": "IDE", "tags": ["ui", "compilation"], "paths": ["*"]}
+        {"id": "ide", "name": "IDE", "tags": ["ui", "compilation"],
+         "summary": "Monaco-based editor with compiler diagnostics, templates, simulation and deployment.",
+         "purpose": "Lets developers write, check and deploy contracts in a browser, with nothing to install.",
+         "paths": ["*"]}
       ]
     },
 
@@ -400,10 +578,16 @@
       "capabilities": [
         {"id": "engine", "name": "WASM execution engine", "tags": ["execution"],
          "summary": "Web worker hosting @xian-tech/vm and @xian-tech/compiler.",
+         "purpose": "Runs contracts in the browser with exactly the VM and compiler the chain uses.",
          "paths": ["src/lib/engine/*"]},
         {"id": "lib", "name": "Playground model", "tags": [],
+         "summary": "Workspace, contract method and value handling behind the playground.",
+         "purpose": "Models what the user is editing and running.",
          "paths": ["src/lib/*"]},
-        {"id": "ui", "name": "UI", "tags": ["ui"], "paths": ["*"]}
+        {"id": "ui", "name": "UI", "tags": ["ui"],
+         "summary": "Playground layout, editor, execution panel and UI parts.",
+         "purpose": "Where users try contracts out.",
+         "paths": ["*"]}
       ]
     },
 
@@ -411,9 +595,17 @@
       "summary": "NFT marketplace: contracts and web app.",
       "capabilities": [
         {"id": "contracts", "name": "NFT contracts", "tags": ["contracts"], "contract": true,
+         "summary": "XSC-005 NFT and marketplace contracts.",
+         "purpose": "Mints and trades NFTs on-chain.",
          "paths": ["contracts/*"]},
-        {"id": "web", "name": "Web app", "tags": ["ui"], "paths": ["src/*"]},
-        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+        {"id": "web", "name": "Web app", "tags": ["ui"],
+         "summary": "Marketplace app for creating, browsing and trading NFTs.",
+         "purpose": "Where users work with the NFT contracts.",
+         "paths": ["src/*"]},
+        {"id": "scripts", "name": "Scripts", "tags": ["release"],
+         "summary": "Mock RPC, localnet check and bootstrap scripts.",
+         "purpose": "Tests and sets up the NFT app.",
+         "paths": ["*"]}
       ]
     },
 
@@ -422,8 +614,12 @@
       "capabilities": [
         {"id": "library", "name": "Contract library", "tags": ["contracts"], "contract": true,
          "summary": "Tokens, staking, lotteries, nameservice, stream payments, shielded adapters ...",
+         "purpose": "Reusable building blocks, so each app doesn't have to write and audit its own.",
          "paths": ["contracts/*"]},
-        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+        {"id": "scripts", "name": "Scripts", "tags": ["release"],
+         "summary": "Validates every contract in the library.",
+         "purpose": "Keeps the library compiling against the current chain.",
+         "paths": ["*"]}
       ]
     },
 
@@ -431,8 +627,13 @@
       "summary": "Stablecoin protocol contracts.",
       "capabilities": [
         {"id": "contracts", "name": "Stablecoin contracts", "tags": ["contracts"], "contract": true,
+         "summary": "CDP vaults, stable token, savings vault, peg-stability module and oracle.",
+         "purpose": "A stablecoin native to Xian, backed by overcollateralized vaults.",
          "paths": ["contracts/*"]},
-        {"id": "scripts", "name": "Scripts", "tags": ["release"], "paths": ["*"]}
+        {"id": "scripts", "name": "Scripts", "tags": ["release"],
+         "summary": "Bootstraps the protocol on a network.",
+         "purpose": "Wires the stablecoin contracts into a running stack.",
+         "paths": ["*"]}
       ]
     },
 
@@ -440,6 +641,8 @@
       "summary": "Xian improvement proposals and token-standard reference contracts.",
       "capabilities": [
         {"id": "standards", "name": "Standard reference contracts", "tags": ["contracts"], "contract": true,
+         "summary": "Reference contracts for the XSC standards: tokens, permits, streaming and wrapped tokens, NFTs.",
+         "purpose": "Shows exactly how each standard is meant to be implemented, so tokens work together.",
          "paths": ["XSC*"]}
       ]
     },
@@ -448,37 +651,57 @@
       "summary": "MCP server exposing chain and DEX tools to AI agents.",
       "capabilities": [
         {"id": "dex-tools", "name": "DEX tools", "tags": ["ai", "dex"],
+         "summary": "DEX quoting, trade planning and execution tools.",
+         "purpose": "Lets AI agents trade on the DEX within set limits.",
          "paths": ["dex_tools.py", "dex_plan_registry.py"]},
-        {"id": "server", "name": "MCP server & chain tools", "tags": ["ai", "api"], "paths": ["*"]}
+        {"id": "server", "name": "MCP server & chain tools", "tags": ["ai", "api"],
+         "summary": "MCP and HTTP server with wallet, transaction, contract, data and crypto tools.",
+         "purpose": "Lets AI assistants use the chain through a standard tool protocol.",
+         "paths": ["*"]}
       ]
     },
 
     "xian-tg-bot": {
       "summary": "Telegram bot with a plugin per command.",
       "capabilities": [
-        {"id": "plugins", "name": "Command plugins", "tags": ["automation"], "paths": ["plg/*"]},
-        {"id": "core", "name": "Bot core", "tags": ["automation"], "paths": ["*"]}
+        {"id": "plugins", "name": "Command plugins", "tags": ["automation"],
+         "summary": "One plugin per command: buy bot, charts, lottery, events, tokens, testnet faucet and more.",
+         "purpose": "Brings chain data and actions into Telegram communities.",
+         "paths": ["plg/*"]},
+        {"id": "core", "name": "Bot core", "tags": ["automation"],
+         "summary": "Plugin loading, bot startup, trading, multisend and utilities.",
+         "purpose": "The framework the plugins run on.",
+         "paths": ["*"]}
       ]
     },
 
     "xian-technology-web": {
       "summary": "Project website (Reflex).",
       "capabilities": [
-        {"id": "site", "name": "Website", "tags": ["ui", "docs"], "paths": ["*"]}
+        {"id": "site", "name": "Website", "tags": ["ui", "docs"],
+         "summary": "Reflex pages for the project website: about, tooling, tutorials and samples.",
+         "purpose": "The project's public face for new users and developers.",
+         "paths": ["*"]}
       ]
     },
 
     "xian-docs-web": {
       "summary": "Documentation site (VitePress).",
       "capabilities": [
-        {"id": "site", "name": "Docs site", "tags": ["docs", "ui"], "paths": ["*"]}
+        {"id": "site", "name": "Docs site", "tags": ["docs", "ui"],
+         "summary": "VitePress configuration and theme components, Mermaid diagrams included.",
+         "purpose": "Publishes the developer documentation.",
+         "paths": ["*"]}
       ]
     },
 
     "xian-ai-skills": {
       "summary": "Agent skills for working with Xian.",
       "capabilities": [
-        {"id": "skills", "name": "Agent skills", "tags": ["ai"], "paths": ["*"]}
+        {"id": "skills", "name": "Agent skills", "tags": ["ai"],
+         "summary": "Agent skills with helper scripts, for example generating validator keys and checking node status.",
+         "purpose": "Teaches coding agents to work with Xian correctly.",
+         "paths": ["*"]}
       ]
     },
 
@@ -495,7 +718,10 @@
     "xian-meta": {
       "summary": "Workspace conventions and cross-repo tooling.",
       "capabilities": [
-        {"id": "tooling", "name": "Workspace tooling", "tags": ["release"], "paths": ["*"]}
+        {"id": "tooling", "name": "Workspace tooling", "tags": ["release"],
+         "summary": "Workspace code-graph refresh, convention checks and test-isolation tools.",
+         "purpose": "Keeps the workspace's repos consistent and their code graphs fresh.",
+         "paths": ["*"]}
       ]
     }
   },

@@ -468,3 +468,35 @@ test("stored layouts that are broken or from another version are ignored, and ba
   } });
   assert.deepEqual(layout.parseLayouts(text), { version: 1, views: { good: { at: 5, nodes: { a: [1, 2, 3, 4] } } } });
 });
+
+// --- source links --------------------------------------------------------------
+const lib = { name: "lib", url: "https://github.com/acme/lib", commit: "abc123" };
+
+test("a capability links to its folder on the default branch, an external system to its project", () => {
+  assert.equal(layout.sourceUrl(lib, "src/a b"), "https://github.com/acme/lib/tree/HEAD/src/a%20b");
+  assert.equal(layout.sourceUrl(lib, ""), "https://github.com/acme/lib");
+  assert.equal(layout.sourceUrl({ ...lib, external: true }, "x"), "https://github.com/acme/lib");
+  assert.equal(layout.sourceUrl({ name: "app", url: null, commit: "f" }, "src"), null);
+});
+
+test("a file links to the commit the map was built from, at its line if there is one", () => {
+  assert.equal(layout.fileUrl(lib, "src/#x.py", 12), "https://github.com/acme/lib/blob/abc123/src/%23x.py#L12");
+  assert.equal(layout.fileUrl(lib, "src/x.py"), "https://github.com/acme/lib/blob/abc123/src/x.py");
+  assert.equal(layout.fileUrl({ ...lib, commit: null }, "src/x.py", 1), null);
+  assert.equal(layout.fileUrl({ ...lib, url: null }, "src/x.py", 1), null);
+});
+
+test("evidence names its file and line, in the source repo or the one its path starts with", () => {
+  const names = new Set(["lib", "app"]);
+  assert.deepEqual(layout.evidenceLocation("src/x.py:L574 main() calls f", "app", names),
+    { repo: "app", path: "src/x.py", line: 574, rest: "main() calls f" });
+  assert.deepEqual(layout.evidenceLocation("lib/src/y.py:L43 import lib.core", "app", names),
+    { repo: "lib", path: "src/y.py", line: 43, rest: "import lib.core" });
+  assert.deepEqual(layout.evidenceLocation("a.ts:L1", "app", names), { repo: "app", path: "a.ts", line: 1, rest: "" });
+  assert.deepEqual(layout.evidenceLocation("lib/y.py:L2", "app", names), { repo: "lib", path: "y.py", line: 2, rest: "" });
+  assert.deepEqual(layout.evidenceLocation("lib:L3 a file named like a repo", "app", names),
+    { repo: "app", path: "lib", line: 3, rest: "a file named like a repo" });
+  assert.equal(layout.evidenceLocation("JSON-RPC broadcast_tx / abci_query", "app", names), null);
+  assert.equal(layout.evidenceLocation("x.py:Lfoo bar", "app", names), null);
+  assert.equal(layout.evidenceLocation("see x.py:L3", "app", names), null);
+});

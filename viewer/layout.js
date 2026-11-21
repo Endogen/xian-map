@@ -454,8 +454,34 @@ const isObject = (value) => typeof value === "object" && value !== null && !Arra
 const validEntries = (nodes) => Object.fromEntries(Object.entries(nodes)
   .filter(([, entry]) => Array.isArray(entry) && entry.length === 4 && entry.every(Number.isFinite)));
 
+// --- source links --------------------------------------------------------------
+// A capability opens its folder on the default branch (code changes; the
+// folder stays). Files and evidence carry line numbers, which only hold at the
+// commit the map was built from, so they link there.
+const encodePath = (path) => path.split("/").map(encodeURIComponent).join("/");
+
+function sourceUrl(repo, path) {
+  if (!repo.url) return null;
+  return repo.external || !path ? repo.url : `${repo.url}/tree/HEAD/${encodePath(path)}`;
+}
+
+function fileUrl(repo, path, line) {
+  if (!repo.url || !repo.commit) return null;
+  return `${repo.url}/blob/${repo.commit}/${encodePath(path)}${line ? `#L${line}` : ""}`;
+}
+
+// "src/x.py:L12 main() calls f" in the source repo, or "lib/src/x.py:L12 ..."
+// when the path starts with a repo's name (cross-repo imports).
+function evidenceLocation(example, fromRepo, repoNames) {
+  const match = /^(\S+?):L(\d+)(?:\s+(.*))?$/.exec(example);
+  if (!match) return null;
+  const [first, ...rest] = match[1].split("/");
+  const prefixed = rest.length > 0 && repoNames.has(first);
+  return { repo: prefixed ? first : fromRepo, path: prefixed ? rest.join("/") : match[1], line: Number(match[2]), rest: match[3] || "" };
+}
+
 const CodeMapLayout = {
-  search, lens, arrangement, restoreArrangement, rememberLayout, parseLayouts,
+  search, lens, arrangement, restoreArrangement, rememberLayout, parseLayouts, sourceUrl, fileUrl, evidenceLocation,
   focusColumns, repoLinks, acyclic, route, reroute, curvePath, elbowPath, splinePath, focusCanvas, elkRepoGraph, repoCanvas,
   primaryGroup, repoOf, groupOf,
 };
