@@ -10,6 +10,9 @@ bindings).
 The output is a single offline HTML page. One command builds it from the
 sibling repos on disk; a second command tells you what has drifted.
 
+**Live version:** https://endogen.github.io/xian-map/ (public repos only, see
+[Publishing to GitHub Pages](#publishing-to-github-pages)).
+
 ![Map view](docs/map.jpg)
 
 ## Contents
@@ -18,6 +21,7 @@ sibling repos on disk; a second command tells you what has drifted.
 - [Quick start](#quick-start)
 - [How it works](#how-it-works)
 - [Keeping the map up to date](#keeping-the-map-up-to-date)
+- [Publishing to GitHub Pages](#publishing-to-github-pages)
 - [capabilities.json reference](#capabilitiesjson-reference)
 - [Changing the viewer or the generator](#changing-the-viewer-or-the-generator)
 - [Limits](#limits)
@@ -124,6 +128,7 @@ Options:
 | `--manifest` | `<workspace-root>/xian-meta/workspace-repos.json` | Repo list with categories and tiers. |
 | `--taxonomy` | `capabilities.json` | The capability definitions. |
 | `--out` | `out/` | Where the page and data go. |
+| `--exclude REPO` | none | Leave a repo out, with every link that touches it (repeatable). |
 | `--check` | off | Report drift instead of building (see below). |
 
 ## How it works
@@ -223,6 +228,29 @@ talk over a network, a socket, a database or a native binding:
 No special skill is needed. Point an agent at this repo and ask it to "update
 the map": `AGENTS.md` sends it to this section, `--check` tells it what to
 change, and the tests tell it when it is done.
+
+## Publishing to GitHub Pages
+
+The live site is the `gh-pages` branch of this repo. GitHub cannot build it,
+because the build needs the sibling repos and their local graphify graphs, so
+it is published from a machine that has the workspace:
+
+```bash
+cd xian-map
+python3 build.py --check          # optional: make sure the map is current
+scripts/publish-pages.sh
+```
+
+The script asks GitHub (via `gh`) which workspace repos are public, builds the
+page **without every repo that is not public** (`--exclude`), and force-pushes
+it as the only commit of `gh-pages`. Pages serves it at
+https://endogen.github.io/xian-map/ a minute later. It needs `git`, `python3`
+and an authenticated `gh`.
+
+Private repos are only left out of the published page. The local build
+(`python3 build.py`) still shows everything, and `capabilities.json` in this
+repo describes all repos, so keep private repos' entries free of anything
+that must not be public.
 
 ## capabilities.json reference
 
@@ -330,16 +358,19 @@ xian-map/
 │   ├── index.html           # page template
 │   ├── layout.js            # tested layout and routing logic
 │   └── vendor/              # React, React Flow, ELK (+ licenses)
+├── scripts/
+│   └── publish-pages.sh     # build without private repos, push to gh-pages
 ├── tests/
 │   ├── test_build.py
 │   └── layout.test.cjs
 ├── docs/                    # screenshots for this README
 ├── .github/workflows/ci.yml
+├── LICENSE                  # MIT
 └── out/                     # generated, git-ignored
 ```
 
 ## Licenses
 
-The vendored libraries keep their own licenses: React and React Flow are MIT,
-ELK (`elkjs`) is EPL-2.0 or GPL-3.0-or-later. See `viewer/vendor/README.md`.
-This repository has no license of its own yet.
+This repository is MIT licensed (see `LICENSE`). The vendored libraries keep
+their own licenses: React and React Flow are MIT, ELK (`elkjs`) is EPL-2.0 or
+GPL-3.0-or-later. See `viewer/vendor/README.md`.

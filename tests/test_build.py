@@ -322,6 +322,24 @@ class WorkspaceBuildTest(unittest.TestCase):
         self.assertEqual(repos["chain"]["category"], "external")
         self.assertEqual(repos["chain"]["capabilities"][0]["languages"], [["Go", None]])
 
+    def test_excluded_repos_leave_no_trace_in_the_data(self):
+        data, _ = code_map.build_map(self.root, code_map.parse_taxonomy(self.taxonomy_raw), self.manifest, exclude={"lib", "chain"})
+        self.assertEqual([repo["name"] for repo in data["repos"]], ["app", "misc"])
+        self.assertEqual([(e["from"], e["to"], e["kind"]) for e in data["edges"]], [("app/main", "app/~app/extra", "code")])
+        self.assertNotIn("lib", json.dumps(data))
+
+    def test_cli_exclude_flag_drops_repos_from_the_page(self):
+        taxonomy_path = self.root / "taxonomy.json"
+        taxonomy_path.write_text(json.dumps(self.taxonomy_raw))
+        manifest_path = self.root / "manifest.json"
+        manifest_path.write_text(json.dumps(self.manifest))
+        out = self.root / "site"
+        with contextlib.redirect_stdout(io.StringIO()):
+            code_map.main(["--workspace-root", str(self.root), "--taxonomy", str(taxonomy_path), "--manifest", str(manifest_path),
+                           "--out", str(out), "--exclude", "lib", "--exclude", "misc"])
+        names = [repo["name"] for repo in json.loads((out / "code-map.json").read_text())["repos"]]
+        self.assertEqual(names, ["chain", "app"])
+
     def test_check_mode_reports_drift_and_writes_nothing(self):
         (self.root / "xian-meta").mkdir()
         (self.root / "xian-meta/workspace-repos.json").write_text(json.dumps(self.manifest))

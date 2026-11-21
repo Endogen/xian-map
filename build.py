@@ -429,6 +429,10 @@ def _add_script_imports(edges, scan, path, cap_id, source, packages, by_name) ->
             edges.add(cap_id, target_cap, "import", f"{scan.name}/{path}:L{line} import {spec}")
 
 
+def _repo_of(capability_id: str) -> str:
+    return capability_id.split("/", 1)[0]
+
+
 def add_link_edges(edges: EdgeSet, links) -> None:
     for link in links:
         edges.add(link.source, link.target, link.kind, link.label)
@@ -504,9 +508,11 @@ def coverage_lines(scan: RepoScan) -> str:
     return line + (f"  (no files: {', '.join(empty)})" if empty else "")
 
 
-def build_map(workspace_root: Path, taxonomy: Taxonomy, manifest: dict) -> tuple[dict, list[RepoScan]]:
+def build_map(workspace_root: Path, taxonomy: Taxonomy, manifest: dict, exclude=frozenset()) -> tuple[dict, list[RepoScan]]:
+    """Scan the workspace into map data. Repos in `exclude` (e.g. private ones on a
+    public site) are left out entirely, together with every link that touches them."""
     entries = {repo["name"]: repo for repo in manifest.get("repos", [])}
-    names = [name for name in dict.fromkeys([*taxonomy.repos, *sorted(entries)]) if not name.startswith(".")]
+    names = [name for name in dict.fromkeys([*taxonomy.repos, *sorted(entries)]) if not name.startswith(".") and name not in exclude]
     scans = []
     for name in names:
         spec = taxonomy.repos.get(name) or RepoSpec(name=name, summary="", external=False, capabilities=())
@@ -520,7 +526,7 @@ def build_map(workspace_root: Path, taxonomy: Taxonomy, manifest: dict) -> tuple
     for scan in code_scans:
         add_graph_edges(edges, load_graph(scan.root), {path: info[0] for path, info in scan.files.items()})
     add_import_edges(edges, code_scans)
-    add_link_edges(edges, taxonomy.links)
+    add_link_edges(edges, [link for link in taxonomy.links if not {_repo_of(link.source), _repo_of(link.target)} & set(exclude)])
     data = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "tags": list(taxonomy.tags),
@@ -607,6 +613,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--manifest", type=Path, default=None,
                         help=f"repo manifest (default: <workspace-root>/{MANIFEST_IN_WORKSPACE})")
     parser.add_argument("--out", type=Path, default=REPO_ROOT / "out")
+    parser.add_argument("--exclude", action="append", default=[], metavar="REPO",
+                        help="leave this repo out of the map, with all its links (repeatable)")
     parser.add_argument("--check", action="store_true",
                         help="report what drifted (unmapped files, empty capabilities, missing repos, stale graphs); writes nothing")
     return parser.parse_args(argv)
@@ -616,7 +624,7 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     taxonomy = parse_taxonomy(json.loads(args.taxonomy.read_text()))
     manifest = json.loads((args.manifest or args.workspace_root / MANIFEST_IN_WORKSPACE).read_text())
-    data, scans = build_map(args.workspace_root.resolve(), taxonomy, manifest)
+    data, scans = build_map(args.workspace_root.resolve(), taxonomy, manifest, exclude=frozenset(args.exclude))
     if args.check:
         return check(scans, taxonomy, manifest)
     args.out.mkdir(parents=True, exist_ok=True)

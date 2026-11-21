@@ -13,8 +13,9 @@ needs is in `README.md`; this file only points at the parts that matter most.
   layout and routing), `viewer/index.html` (the page). Run
   `python3 -m unittest discover -s tests` before committing; it also runs the
   Node layout tests when `node` is installed.
-- `out/` is generated and ignored. Never commit it: it contains the workspace's
-  file list.
+- `out/` is generated and ignored. Never commit it. The public site is
+  published only with `scripts/publish-pages.sh`, which leaves out every repo
+  that is not public on GitHub; never publish a build some other way.
 - Do not edit the sibling repos from here. Graph refreshes go through
   `xian-meta/scripts/graphify_workspace.py`, which only touches their ignored
   `graphify-out/` folders.
