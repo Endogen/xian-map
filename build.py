@@ -447,9 +447,11 @@ def _repo_of(capability_id: str) -> str:
     return capability_id.split("/", 1)[0]
 
 
-def add_link_edges(edges: EdgeSet, links) -> None:
+def add_link_edges(edges: EdgeSet, links, repos) -> None:
+    present = {cap["id"] for repo in repos for cap in repo["capabilities"]}
     for link in links:
-        edges.add(link.source, link.target, link.kind, link.label)
+        if link.source in present and link.target in present:
+            edges.add(link.source, link.target, link.kind, link.label)
 
 
 def load_graph(repo_root: Path) -> dict:
@@ -542,8 +544,7 @@ def build_map(workspace_root: Path, taxonomy: Taxonomy, manifest: dict, exclude=
         add_graph_edges(edges, load_graph(scan.root), {path: info[0] for path, info in scan.files.items()})
     add_import_edges(edges, code_scans)
     repos = [repo_record(scan, entries.get(scan.name, {})) for scan in scans]
-    present = {cap["id"] for repo in repos for cap in repo["capabilities"]}
-    add_link_edges(edges, (link for link in taxonomy.links if link.source in present and link.target in present))
+    add_link_edges(edges, taxonomy.links, repos)
     data = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "tags": list(taxonomy.tags),
