@@ -12,25 +12,37 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 workspace=$(dirname "$repo_root")
 manifest="$workspace/xian-meta/workspace-repos.json"
-org=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["organization"])' "$manifest")
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
 
-# Leave out every local repo that GitHub does not report as public.
+# Enumerate the same workspace repos the generator can include. Only manifest
+# entries have a known GitHub identity. External systems have no checkout.
+python3 - "$manifest" "$repo_root/capabilities.json" > "$work/candidates" <<'PYTHON'
+import json
+import sys
+
+with open(sys.argv[1]) as f:
+    manifest = json.load(f)
+with open(sys.argv[2]) as f:
+    repos = json.load(f)["repos"]
+slugs = {r["name"]: r.get("slug", r["name"]) for r in manifest["repos"]}
+for name in sorted(slugs.keys() | repos.keys()):
+    if not name.startswith(".") and not repos.get(name, {}).get("external"):
+        remote = f"{manifest['organization']}/{slugs[name]}" if name in slugs else ""
+        print(name, remote, sep="\t")
+PYTHON
+
 excludes=()
-while IFS=$'\t' read -r name slug; do
-  [ -d "$workspace/$name/.git" ] || continue
-  visibility=$(gh repo view "$org/$slug" --json visibility -q .visibility 2>/dev/null || echo UNKNOWN)
+while IFS=$'\t' read -r name remote; do
+  visibility=UNKNOWN
+  if [ -n "$remote" ]; then
+    visibility=$(gh repo view "$remote" --json visibility -q .visibility 2>/dev/null) || visibility=UNKNOWN
+  fi
   if [ "$visibility" != "PUBLIC" ]; then
     echo "leaving out $name ($visibility)"
     excludes+=(--exclude "$name")
   fi
-done < <(python3 -c '
-import json, sys
-for repo in json.load(open(sys.argv[1]))["repos"]:
-    print(repo["name"], repo.get("slug", repo["name"]), sep="\t")
-' "$manifest")
-
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+done < "$work/candidates"
 python3 "$repo_root/build.py" --out "$work/build" ${excludes[@]+"${excludes[@]}"}
 
 mkdir "$work/site"

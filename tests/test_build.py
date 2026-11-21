@@ -4,6 +4,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -359,6 +360,35 @@ class WorkspaceBuildTest(unittest.TestCase):
                            "--out", str(out), "--exclude", "lib", "--exclude", "misc"])
         names = [repo["name"] for repo in json.loads((out / "code-map.json").read_text())["repos"]]
         self.assertEqual(names, ["chain", "app"])
+
+    def test_pages_build_includes_only_verified_public_repositories(self):
+        # lib is taxonomy-only, misc a linked worktree, and app a public repo with a different slug.
+        (self.root / "misc").rename(self.root / "checkout")
+        subprocess.run(["git", "-C", str(self.root / "checkout"), "worktree", "add", "-q", "--detach",
+                        str(self.root / "misc")], check=True)
+        self.manifest.update(organization="fixture")
+        self.manifest["repos"][0]["slug"] = "public-app"
+        (self.root / "xian-meta").mkdir()
+        (self.root / "xian-meta/workspace-repos.json").write_text(json.dumps(self.manifest))
+        self._repo("map", {"capabilities.json": json.dumps(self.taxonomy_raw)})
+        repo = self.root / "map"
+        for path in ("build.py", "viewer", "scripts"):
+            (repo / path).symlink_to(code_map.REPO_ROOT / path)
+        destination = self.root / "published.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(destination)], check=True)
+        subprocess.run(["git", "-C", str(repo), "remote", "add", "origin", str(destination)], check=True)
+        gh = self.root / "gh"
+        gh.write_text('#!/bin/sh\nif [ "$3" = fixture/public-app ]; then echo PUBLIC; else echo PRIVATE; fi\n')
+        gh.chmod(0o755)
+        env = dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ["PATH"],
+                   GIT_AUTHOR_NAME="test", GIT_AUTHOR_EMAIL="test@example.org",
+                   GIT_COMMITTER_NAME="test", GIT_COMMITTER_EMAIL="test@example.org")
+        subprocess.run(["bash", str(repo / "scripts/publish-pages.sh")], check=True, env=env, capture_output=True)
+        page = subprocess.check_output(["git", "-C", str(destination), "show", "gh-pages:index.html"], text=True)
+        self.assertPageHas(page, '"id":"app/main"')
+        self.assertPageHas(page, '"id":"chain/rpc"')
+        self.assertPageLacks(page, '"id":"lib/core"')
+        self.assertPageLacks(page, '"id":"misc/~."')
 
     def test_check_mode_reports_drift_and_writes_nothing(self):
         (self.root / "xian-meta").mkdir()
