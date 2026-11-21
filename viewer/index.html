@@ -55,6 +55,8 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
 .btn.ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
 .btn.ghost:hover { background: var(--surface-2); color: var(--ink); }
 .btn.icon-only { width: 30px; padding: 0; justify-content: center; }
+.btn.sm { height: 26px; padding: 0 9px; font-size: 12px; gap: 5px; }
+.btn.sm .icon { width: 14px; height: 14px; }
 .btn:disabled { opacity: .45; cursor: default; }
 .muted { color: var(--ink-3); }
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
@@ -130,6 +132,9 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
 .tag[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 .tag[aria-pressed="true"] small { color: inherit; opacity: .7; }
 .tag small { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.layouts-option { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-3); line-height: 1.5; }
+.layouts-option .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ink-2); }
+.layouts-option .row .btn { margin-right: -6px; }
 .side-foot { font-size: 12px; color: var(--ink-3); line-height: 1.6; border-top: 1px solid var(--line); padding-top: 12px; }
 
 /* ---- main --------------------------------------------------------------- */
@@ -148,7 +153,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
 .wire.faint { opacity: .12; }
 .wire.active .track { stroke-opacity: .95; }
 @keyframes flow { to { stroke-dashoffset: -13.1; } }
-@media (prefers-reduced-motion: reduce) { .wire .flow { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .wire .flow, .layout-chip.restored, .pulse { animation: none; } }
 
 /* map view */
 #map-stage { position: relative; padding: 8px 24px 40px; }
@@ -221,6 +226,16 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
 .centre-card .actions .btn { height: 26px; font-size: 12px; padding: 0 9px; }
 .repo-node { border: 1px solid var(--line); border-left: 3px solid var(--lang, var(--line-strong)); background: var(--surface); border-radius: var(--radius-sm);
   padding: 7px 10px 8px; box-shadow: var(--shadow-sm); display: grid; gap: 2px; }
+/* saved layout: a status pill between the zoom controls and the minimap */
+.react-flow__panel.layout-panel { margin: 0 0 14px; }
+.layout-chip { display: flex; align-items: center; gap: 8px; padding: 3px 3px 3px 12px; border-radius: 999px; white-space: nowrap;
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--line); box-shadow: var(--shadow);
+  font-size: 12.5px; color: var(--ink-2); }
+.layout-chip:empty { display: none; }
+.layout-chip .dot { width: 7px; height: 7px; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.layout-chip .btn { border-radius: 999px; }
+.layout-chip.restored { border-color: var(--accent-ring); color: var(--ink); animation: pulse 1.1s ease-out 2; }
+.layout-chip.unsaved { padding-left: 12px; color: var(--ink-3); }
 .repo-node.external { border-style: dashed; border-left-style: solid; background: var(--surface-2); }
 .repo-node strong { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .repo-node small { color: var(--ink-3); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -268,6 +283,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   .section > h2 { margin: 0 -16px 10px; padding: 8px 16px; }
   .view-head .hints { display: none; }
   .brand strong { display: none; }
+  .react-flow__minimap { display: none; }
 }
 </style>
 </head>
@@ -287,6 +303,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></symbol>
   <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16M7 12h10M10 19h4"/></symbol>
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
   <symbol id="i-mark" viewBox="0 0 24 24"><circle cx="6" cy="7" r="2.2"/><circle cx="18" cy="7" r="2.2"/><circle cx="12" cy="17" r="2.2"/><path d="M8 8.2 10.6 15M16 8.2 13.4 15M8.2 7h7.6"/></symbol>
 </svg>
@@ -337,6 +354,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
             <button type="button" data-shape="orthogonal" aria-pressed="false">Orthogonal</button>
           </div>
         </div>
+        <div class="layouts-option" id="layouts-option" aria-live="polite"></div>
       </section>
       <section class="side-section"><h3>Languages <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">click to find them</span></h3><div class="lang-list" id="langs"></div></section>
       <section class="side-section"><h3>Functionality <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">click to find them</span></h3><div class="tag-cloud" id="tags"></div></section>
@@ -361,7 +379,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
 
       <section class="view" id="repo-view" aria-label="Repo flow" hidden>
         <div class="canvas-host" id="repo-canvas"></div>
-        <div class="overlay"><strong>Repo flow</strong><span class="hint">Users left of what they use, foundations on the right. Click a repo to trace it, double-click to open it in the map.</span></div>
+        <div class="overlay"><strong>Repo flow</strong><span class="hint">Users left of what they use, foundations on the right. Click a repo to trace it, double-click to open it in the map, drag to arrange.</span></div>
         <div class="status" id="repo-status" hidden>Laying out repos…</div>
       </section>
     </main>
@@ -378,7 +396,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   "use strict";
   const L = window.CodeMapLayout;
   const { createElement: h, useState, useMemo, useEffect } = window.React;
-  const { ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Handle, Position, useNodesState, useReactFlow, useStore, useNodesInitialized } = window.ReactFlow;
+  const { ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Panel, Handle, Position, useNodesState, useReactFlow, useStore, useNodesInitialized } = window.ReactFlow;
   const { useRef } = window.React;
 
   const LANG_COLORS = {
@@ -421,7 +439,41 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
   };
   const push = (map, key, value) => (map.get(key) || map.set(key, []).get(key)).push(value);
   const stored = (key, fallback) => { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } };
-  const store = (key, value) => { try { localStorage.setItem(key, value); } catch { /* storage may be blocked */ } };
+  const store = (key, value) => { try { localStorage.setItem(key, value); return true; } catch { return false; } };  // storage may be blocked
+
+  // --- saved layouts ---------------------------------------------------------
+  // Cards dragged in Focus or Repo flow stay put across visits, per view (the
+  // canvas model's key). layout.js decides what is kept and what still fits.
+  const LAYOUTS_KEY = "xian-map-layouts";
+  let layouts = L.parseLayouts(stored(LAYOUTS_KEY, null));
+  let layoutsSaved = true;
+  let layoutEpoch = 0; // bumped by "Reset all" so every canvas starts over
+
+  function saveLayout(key, nodes) {
+    layouts = L.rememberLayout(layouts, key, nodes, Date.now());
+    layoutsSaved = store(LAYOUTS_KEY, JSON.stringify(layouts));
+    renderLayoutsOption();
+    return layoutsSaved;
+  }
+
+  function resetAllLayouts() {
+    layouts = L.parseLayouts(null);
+    layoutsSaved = store(LAYOUTS_KEY, JSON.stringify(layouts));
+    layoutEpoch += 1;
+    renderLayoutsOption();
+    update();
+  }
+
+  function renderLayoutsOption() {
+    const count = Object.keys(layouts.views).length;
+    const host = $("layouts-option");
+    if (!layoutsSaved) return host.replaceChildren("This browser blocks storage, so arranged cards go back on reload.");
+    if (!count) return host.replaceChildren("Drag cards in Focus or Repo flow to arrange them. This browser keeps where you put them.");
+    host.replaceChildren(el("div", { class: "row" },
+      el("span", {}, `${count} arranged ${count === 1 ? "view" : "views"} saved`),
+      el("button", { type: "button", class: "btn ghost sm", "aria-label": "Reset all layouts", title: "Put every card in every view back in its automatic place", onclick: resetAllLayouts },
+        icon("reset"), "Reset all")));
+  }
 
   // --- model -----------------------------------------------------------------
   const caps = new Map();
@@ -653,12 +705,51 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     return dominantColor(cap.languages) || "#999";
   }
 
-  // One React Flow canvas. Positions come from layout.js (and ELK for repos);
-  // dragging a card re-routes only the wires that touch it.
+  const CHIP = {
+    restored: ["Restored your layout", "Cards are where you left them last time"],
+    custom: ["Your layout", "Cards you drag stay where you put them, in this browser"],
+    unsaved: ["Layout not saved", "This browser blocks storage, so the cards go back on reload"],
+  };
+  const svgIcon = (name) => h("svg", { className: "icon", "aria-hidden": "true" }, h("use", { href: `#i-${name}` }));
+
+  // Says when a view shows the user's own arrangement, and puts it back.
+  function LayoutChip({ status, onReset }) {
+    const [label, title] = CHIP[status] || [];
+    return h(Panel, { position: "bottom-center", className: "layout-panel" },
+      h("div", { className: `layout-chip ${status || ""}`, role: "status", title }, status ? [
+        status === "unsaved" ? null : h("span", { key: "dot", className: "dot" }),
+        h("span", { key: "label" }, label),
+        h("button", { key: "reset", type: "button", className: "btn ghost sm", onClick: onReset, "aria-label": "Reset layout", title: "Put every card back in its automatic place" },
+          svgIcon("reset"), "Reset"),
+      ] : null));
+  }
+
+  // One React Flow canvas. Positions come from layout.js (and ELK for repos),
+  // or from the user's saved arrangement of this view; dragging a card
+  // re-routes only the wires that touch it and saves where it was dropped.
   function FlowCanvas({ model, classes, animate, shape, colorMode, reveal, onNodeClick, onNodeDoubleClick, onPaneClick }) {
-    const [nodes, setNodes, onNodesChange] = useNodesState(model.nodes.map(toFlowNode));
+    const [start] = useState(() => L.restoreArrangement(model.nodes, (layouts.views[model.key] || {}).nodes));
+    const [nodes, setNodes, onNodesChange] = useNodesState(start.nodes.map(toFlowNode));
+    const [chip, setChip] = useState(start.restored ? "restored" : null);
     const [hover, setHover] = useState(null);
     const flow = useReactFlow();
+    useEffect(() => {
+      if (chip !== "restored") return undefined;
+      const timer = setTimeout(() => setChip("custom"), 6000);
+      return () => clearTimeout(timer);
+    }, [chip]);
+    const saveArrangement = () => {
+      const now = new Map(flow.getNodes().map((n) => [n.id, n.position]));
+      const moved = L.arrangement(model.nodes, (id) => now.get(id));
+      const saved = saveLayout(model.key, moved);
+      setChip(Object.keys(moved).length ? (saved ? "custom" : "unsaved") : null);
+    };
+    const resetArrangement = () => {
+      setNodes((current) => current.map((n) => ({ ...n, position: { x: original.get(n.id).x, y: original.get(n.id).y } })));
+      saveLayout(model.key, {});
+      setChip(null);
+      setTimeout(() => flow.fitView({ padding: 0.14, duration: reducedMotion ? 0 : 450 }), 30);
+    };
     // Zoom to a node asked for by search, a lens or a view switch. A canvas that
     // was hidden a moment ago has no size yet, so wait until it is measured, and
     // apply each request once (after React Flow's own initial fit).
@@ -687,7 +778,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
       }));
     }, [nodes, model.wires, original, shape, hover, animate]);
     return h(ReactFlow, {
-      nodes, edges: wires, onNodesChange, nodeTypes: NODE_TYPES, edgeTypes: EDGE_TYPES,
+      nodes, edges: wires, onNodesChange, onNodeDragStop: saveArrangement, nodeTypes: NODE_TYPES, edgeTypes: EDGE_TYPES,
       fitView: true, fitViewOptions: { padding: 0.14 }, minZoom: 0.1, maxZoom: 2, zoomOnDoubleClick: false,
       nodesConnectable: false, elementsSelectable: false, colorMode,
       onNodeClick: (event, node) => onNodeClick(node), onNodeDoubleClick: (event, node) => onNodeDoubleClick(node), onPaneClick,
@@ -695,12 +786,13 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     },
     h(Background, { gap: 22, size: 1.2 }),
     h(Controls, { showInteractive: false, position: "bottom-left" }),
+    h(LayoutChip, { status: chip, onReset: resetArrangement }),
     h(MiniMap, { pannable: true, zoomable: true, nodeColor, nodeStrokeWidth: 0, nodeBorderRadius: 3, maskColor: "rgba(120,120,120,.16)" }));
   }
 
   function mountCanvas(host) {
     const root = ReactDOM.createRoot(host);
-    return (props) => root.render(h(ReactFlowProvider, { key: props.model.key }, h(FlowCanvas, { colorMode: effectiveTheme(), ...props })));
+    return (props) => root.render(h(ReactFlowProvider, { key: `${props.model.key}#${layoutEpoch}` }, h(FlowCanvas, { colorMode: effectiveTheme(), ...props })));
   }
 
   // --- focus view ------------------------------------------------------------
@@ -720,7 +812,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
     $("focus-starters").hidden = Boolean(cap);
     if (!cap) { focusModel = null; renderStarters(); return; }
     $("focus-bar").replaceChildren(...renderTrail(cap));
-    focusModel = { key: `${cap.id}|${kindsKey()}`, ...L.focusCanvas(L.focusColumns(cap.id, edges, visibleKind), SIZE) };
+    focusModel = { key: `focus|${cap.id}|${kindsKey()}`, ...L.focusCanvas(L.focusColumns(cap.id, edges, visibleKind), SIZE) };
   }
 
   function renderTrail(cap) {
@@ -1170,6 +1262,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-strong); border-botto
 
   applyTheme();
   renderSidebar();
+  renderLayoutsOption();
   renderLens();
   restoreLocation();
 })();

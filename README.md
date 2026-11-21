@@ -56,12 +56,14 @@ sibling repos on disk; a second command tells you what has drifted.
 | Focus | Click a side card | That capability becomes the centre; **Back** and the breadcrumb return. |
 | Focus | Hover a side card | Highlights its wire. |
 | Focus, Repo flow | Drag the background, scroll, use the controls or the minimap | Pan and zoom. |
-| Focus, Repo flow | Drag a card | Moves it; the wires that touch it re-route live. |
+| Focus, Repo flow | Drag a card | Moves it; the wires that touch it re-route live. The browser remembers where you put it (see [Your own arrangement](#your-own-arrangement)). |
+| Focus, Repo flow | **Reset** in the chip at the bottom | Puts every card of that view back in its automatic place. |
 | Repo flow | Click a repo | Animates its links and fades everything else; click the background to clear. |
 | Repo flow | Double-click a repo | Opens it in the Map. |
 | Sidebar | Tick or untick a link kind | Shows or hides in-repo calls, cross-repo imports, or runtime protocols in every view. |
 | Sidebar | Click a language or a functionality tag | Turns on a lens: matching capabilities stay highlighted in every view, and a list at the top of the sidebar shows all of them, biggest first (for a language: by lines in that language), e.g. "Rust · 11 capabilities in 2 repos · 71k lines of Rust". Click an entry to go there. In Repo flow, each repo card shows how much of the language it holds. Language and tag combine; **Clear** resets. |
 | Sidebar | Animate flow / Show all links / Wire style | Turns the moving dots on or off, draws every link in the Map, switches Focus wires between curved and orthogonal. |
+| Sidebar | **Reset all** under Display | Forgets the arrangement of every view. |
 | Top bar | Search (<kbd>/</kbd>) | Lists ranked matches as you type: repos, capabilities, and files (shown with the capability that holds them). <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd>, or click, takes you there in the current view: the Map scrolls to it and opens its details, Focus puts it in the centre, Repo flow selects its repo and zooms in. |
 | Top bar | Theme button | Cycles system, light and dark. |
 
@@ -81,6 +83,27 @@ views, <kbd>Esc</kbd> clears the search or closes the panel or drawer. The URL
 remembers the view and the selected capability
 (`#mode=focus&cap=xian-abci/execution`), so you can bookmark or share a
 position.
+
+### Your own arrangement
+
+Cards you drag in Focus or Repo flow stay where you drop them, also after a
+reload. Each view is kept on its own: Repo flow, and Focus once per centre
+capability (and per set of link kinds, since those change the layout). Only
+this browser keeps them (`localStorage`). Nothing is sent anywhere.
+
+- A chip at the bottom of the canvas shows when a view is not in its automatic
+  layout. **Your layout** means you moved cards. **Restored your layout**
+  (pulsing once) means the arrangement came back from an earlier visit.
+  **Layout not saved** means the browser blocks storage, so the arrangement is
+  lost on reload.
+- **Reset** in the chip resets that view. **Reset all** in the sidebar's
+  Display section resets every view. The sidebar also says how many views
+  are saved.
+- A card goes back to its saved place only while the automatic layout still
+  puts it where it was when you moved it. After a rebuild that changes the
+  layout around a card, that card starts from its new automatic place instead
+  of landing on top of new neighbours.
+- At most 50 views are kept. The ones arranged longest ago are dropped first.
 
 ### Reading the map
 
@@ -310,7 +333,7 @@ Rules, all enforced when the file is loaded:
 | --- | --- |
 | `build.py` | The generator and `--check` (Python standard library only). |
 | `viewer/index.html` | The page: layout, styles, the Map view, sidebar, details panel, and the React Flow canvases. |
-| `viewer/layout.js` | Pure, tested logic: search ranking, language and tag lenses, focus columns, repo links, cycle cutting, ELK input and output, wire routing (ports, curves, orthogonal lanes). |
+| `viewer/layout.js` | Pure, tested logic: search ranking, language and tag lenses, focus columns, repo links, cycle cutting, ELK input and output, wire routing (ports, curves, orthogonal lanes), and which saved card positions to keep and restore. |
 | `viewer/vendor/` | React, React Flow and ELK browser builds (see its README for versions and updating). |
 | `tests/test_build.py` | Generator and check tests, including a full build of a fake two-repo workspace. |
 | `tests/layout.test.cjs` | Layout and routing tests, including a run of the real ELK. |

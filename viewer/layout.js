@@ -399,8 +399,63 @@ function lensAmount(cap, lang) {
 
 const byAmount = (a, b) => (b.amount ?? -1) - (a.amount ?? -1) || a.id.localeCompare(b.id);
 
+// --- saved layouts -----------------------------------------------------------
+// A view's arrangement lists the cards the user dragged as id -> [x, y, autoX,
+// autoY]. The automatic place is kept so a card goes back only while the
+// layout still puts it there: a rebuilt map never strands cards on top of new
+// ones.
+const LAYOUTS_VERSION = 1;
+const SAME_PLACE = 0.5;
+
+function arrangement(nodes, positionOf) {
+  const moved = {};
+  for (const node of nodes) {
+    const at = positionOf(node.id);
+    if (at.x !== node.x || at.y !== node.y) moved[node.id] = [at.x, at.y, node.x, node.y];
+  }
+  return moved;
+}
+
+function restoreArrangement(nodes, saved = {}) {
+  let restored = 0;
+  const placed = nodes.map((node) => {
+    const entry = saved[node.id];
+    if (!entry || !samePlace(entry, node)) return node;
+    restored += 1;
+    return { ...node, x: entry[0], y: entry[1] };
+  });
+  return { nodes: restored ? placed : nodes, restored };
+}
+
+const samePlace = ([, , autoX, autoY], node) => Math.abs(autoX - node.x) < SAME_PLACE && Math.abs(autoY - node.y) < SAME_PLACE;
+
+function rememberLayout(layouts, key, nodes, at, limit = 50) {
+  const views = { ...layouts.views };
+  delete views[key];
+  if (Object.keys(nodes).length) views[key] = { at, nodes };
+  const kept = Object.entries(views).sort(([, a], [, b]) => b.at - a.at).slice(0, limit);
+  return { version: LAYOUTS_VERSION, views: Object.fromEntries(kept) };
+}
+
+function parseLayouts(text) {
+  const empty = { version: LAYOUTS_VERSION, views: {} };
+  let data;
+  try { data = JSON.parse(text); } catch { return empty; }
+  if (!isObject(data) || data.version !== LAYOUTS_VERSION || !isObject(data.views)) return empty;
+  for (const [key, view] of Object.entries(data.views)) {
+    const nodes = validNodes(view);
+    if (Object.keys(nodes).length) empty.views[key] = { at: view.at, nodes };
+  }
+  return empty;
+}
+
+const validNodes = (view) => (isObject(view) && Number.isFinite(view.at) && isObject(view.nodes) ? validEntries(view.nodes) : {});
+const isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+const validEntries = (nodes) => Object.fromEntries(Object.entries(nodes)
+  .filter(([, entry]) => Array.isArray(entry) && entry.length === 4 && entry.every(Number.isFinite)));
+
 const CodeMapLayout = {
-  search, lens,
+  search, lens, arrangement, restoreArrangement, rememberLayout, parseLayouts,
   focusColumns, repoLinks, acyclic, route, reroute, curvePath, elbowPath, splinePath, focusCanvas, elkRepoGraph, repoCanvas,
   primaryGroup, repoOf, groupOf,
 };

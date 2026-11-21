@@ -414,3 +414,57 @@ test("a capability can be found by its summary alone", () => {
   const repos = [{ name: "r", summary: "", capabilities: [cap("r", "x", "Helpers", { summary: "Consensus glue" })] }];
   assert.deepEqual(layout.search("consensus", repos).results.map((r) => [r.id, r.score]), [["r/x", 30]]);
 });
+
+// --- saved layouts -----------------------------------------------------------
+const auto = [{ id: "a", x: 0, y: 0 }, { id: "b", x: 100, y: 40 }, { id: "label:x", x: 0, y: -30 }];
+
+test("an arrangement keeps only the cards that left their automatic place", () => {
+  const now = new Map([["a", { x: 0, y: 0 }], ["b", { x: 160, y: 90 }], ["label:x", { x: 0, y: -30 }]]);
+  assert.deepEqual(layout.arrangement(auto, (id) => now.get(id)), { b: [160, 90, 100, 40] });
+  assert.deepEqual(layout.arrangement(auto, (id) => auto.find((n) => n.id === id)), {});
+  const sideways = new Map([["a", { x: 7, y: 0 }], ["b", { x: 100, y: 41 }], ["label:x", { x: 0, y: -30 }]]);
+  assert.deepEqual(layout.arrangement(auto, (id) => sideways.get(id)), { a: [7, 0, 0, 0], b: [100, 41, 100, 40] }, "one axis is enough");
+});
+
+test("a saved card goes back only while the automatic layout still puts it in the same place", () => {
+  const saved = { a: [5, 6, 0, 0], b: [300, 300, 90, 40], gone: [1, 2, 3, 4] };
+  const { nodes, restored } = layout.restoreArrangement(auto, saved);
+  assert.equal(restored, 1);
+  assert.deepEqual(nodes.map((n) => [n.id, n.x, n.y]), [["a", 5, 6], ["b", 100, 40], ["label:x", 0, -30]]);
+  assert.equal(nodes[2], auto[2], "untouched nodes are passed through");
+  assert.deepEqual(layout.restoreArrangement(auto, { a: [5, 6, 0, 0.4] }).restored, 1, "sub-pixel noise is the same place");
+  assert.deepEqual(layout.restoreArrangement(auto, { a: [5, 6, 0, 0.5] }).restored, 0);
+  assert.deepEqual(layout.restoreArrangement(auto, { a: [5, 6, 0.5, 0] }).restored, 0);
+  assert.equal(layout.restoreArrangement(auto, { b: [9, 9, 100.4, 39.6] }).restored, 1, "away from the origin too");
+  assert.equal(layout.restoreArrangement(auto, { b: [9, 9, 100.5, 40] }).restored, 0);
+  assert.equal(layout.restoreArrangement(auto, { b: [9, 9, 100, 39.5] }).restored, 0);
+  assert.equal(layout.restoreArrangement(auto, { b: [9, 9, -100, 40] }).restored, 0);
+  assert.equal(layout.restoreArrangement(auto, { b: [9, 9, 100, -40] }).restored, 0);
+  assert.deepEqual(layout.restoreArrangement(auto, undefined), { nodes: auto, restored: 0 });
+});
+
+test("remembering a view stores it with its time, and an empty arrangement forgets it", () => {
+  const empty = layout.parseLayouts(null);
+  const one = layout.rememberLayout(empty, "repos|k", { b: [1, 2, 3, 4] }, 10);
+  assert.deepEqual(one, { version: 1, views: { "repos|k": { at: 10, nodes: { b: [1, 2, 3, 4] } } } });
+  assert.deepEqual(empty, { version: 1, views: {} }, "the input is not changed");
+  assert.deepEqual(layout.rememberLayout(one, "repos|k", {}, 11), { version: 1, views: {} });
+});
+
+test("only the most recently arranged views are kept", () => {
+  let layouts = layout.parseLayouts("");
+  for (const [key, at] of [["old", 1], ["new", 3], ["mid", 2]]) layouts = layout.rememberLayout(layouts, key, { a: [1, 1, 0, 0] }, at, 2);
+  assert.deepEqual(Object.keys(layouts.views).sort(), ["mid", "new"]);
+  layouts = layout.rememberLayout(layouts, "newest", { a: [1, 1, 0, 0] }, 4, 2);
+  assert.deepEqual(Object.keys(layouts.views).sort(), ["new", "newest"]);
+});
+
+test("stored layouts that are broken or from another version are ignored, and bad entries dropped", () => {
+  for (const text of [null, "", "{", "[]", '"x"', '{"version":2,"views":{}}', '{"version":1,"views":[]}', '{"version":1}'])
+    assert.deepEqual(layout.parseLayouts(text), { version: 1, views: {} }, String(text));
+  const text = JSON.stringify({ version: 1, views: {
+    good: { at: 5, nodes: { a: [1, 2, 3, 4], bad: [1, 2, "x", 4], short: [1, 2, 3], nan: [1, null, 3, 4] } },
+    noTime: { nodes: { a: [1, 2, 3, 4] } }, noNodes: { at: 1 }, allBad: { at: 1, nodes: { a: "x" } }, nul: null,
+  } });
+  assert.deepEqual(layout.parseLayouts(text), { version: 1, views: { good: { at: 5, nodes: { a: [1, 2, 3, 4] } } } });
+});
