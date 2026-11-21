@@ -328,6 +328,14 @@ class WorkspaceBuildTest(unittest.TestCase):
         self.assertEqual([(e["from"], e["to"], e["kind"]) for e in data["edges"]], [("app/main", "app/~app/extra", "code")])
         self.assertNotIn("lib", json.dumps(data))
 
+    def test_external_systems_reached_only_through_excluded_repos_go_too(self):
+        data, _ = code_map.build_map(self.root, code_map.parse_taxonomy(self.taxonomy_raw), self.manifest, exclude={"app"})
+        self.assertEqual([repo["name"] for repo in data["repos"]], ["lib", "misc"])
+        self.taxonomy_raw["repos"]["chain"]["capabilities"].append({"id": "idle", "name": "Idle", "tags": [], "languages": ["Go"]})
+        self.taxonomy_raw["links"].append({"from": "lib/core", "to": "chain/idle", "kind": "rpc"})
+        data, _ = code_map.build_map(self.root, code_map.parse_taxonomy(self.taxonomy_raw), self.manifest, exclude={"app"})
+        self.assertEqual([repo["name"] for repo in data["repos"]], ["chain", "lib", "misc"])
+
     def test_cli_exclude_flag_drops_repos_from_the_page(self):
         taxonomy_path = self.root / "taxonomy.json"
         taxonomy_path.write_text(json.dumps(self.taxonomy_raw))

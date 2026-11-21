@@ -429,6 +429,20 @@ def _add_script_imports(edges, scan, path, cap_id, source, packages, by_name) ->
             edges.add(cap_id, target_cap, "import", f"{scan.name}/{path}:L{line} import {spec}")
 
 
+def widen_exclusion(taxonomy: Taxonomy, exclude) -> frozenset:
+    """Also leave out external systems that only excluded repos connect to, so
+    nothing on the page hints at what was left out."""
+    widened = set(exclude)
+    for name, spec in taxonomy.repos.items():
+        if not spec.external:
+            continue
+        others = [{_repo_of(l.source), _repo_of(l.target)} - {name} for l in taxonomy.links
+                  if name in (_repo_of(l.source), _repo_of(l.target))]
+        if others and all(other and other <= set(exclude) for other in others):
+            widened.add(name)
+    return frozenset(widened)
+
+
 def _repo_of(capability_id: str) -> str:
     return capability_id.split("/", 1)[0]
 
@@ -511,6 +525,7 @@ def coverage_lines(scan: RepoScan) -> str:
 def build_map(workspace_root: Path, taxonomy: Taxonomy, manifest: dict, exclude=frozenset()) -> tuple[dict, list[RepoScan]]:
     """Scan the workspace into map data. Repos in `exclude` (e.g. private ones on a
     public site) are left out entirely, together with every link that touches them."""
+    exclude = widen_exclusion(taxonomy, exclude)
     entries = {repo["name"]: repo for repo in manifest.get("repos", [])}
     names = [name for name in dict.fromkeys([*taxonomy.repos, *sorted(entries)]) if not name.startswith(".") and name not in exclude]
     scans = []
