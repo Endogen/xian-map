@@ -1074,6 +1074,7 @@ a.btn { text-decoration: none; }
     resultsBox.querySelectorAll(".result").forEach((row, index) => row.classList.toggle("active", index === found.active));
     const row = $(`result-${found.active}`);
     if (row) { search.setAttribute("aria-activedescendant", row.id); row.scrollIntoView({ block: "nearest" }); }
+    else search.removeAttribute("aria-activedescendant");
   }
 
   function chooseResult(index) {
@@ -1086,6 +1087,7 @@ a.btn { text-decoration: none; }
   }
 
   function closeSearch() {
+    found.results = [];
     resultsBox.hidden = true;
     search.setAttribute("aria-expanded", "false");
     search.removeAttribute("aria-activedescendant");
