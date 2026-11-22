@@ -407,6 +407,37 @@
       ]
     },
 
+    "xian-wallet-cli": {
+      "summary": "Terminal wallet for reviewing, signing and submitting Xian transactions.",
+      "capabilities": [
+        {"id": "custody", "name": "Accounts and key storage", "tags": ["wallet", "storage", "crypto"],
+         "summary": "Account commands, encrypted key storage, owner-only files and the local SQLite store.",
+         "purpose": "Keeps signing keys under the wallet owner's control and supports watch-only accounts.",
+         "paths": ["src/xian_wallet_cli/accounts_cli.py", "src/xian_wallet_cli/vault.py",
+                   "src/xian_wallet_cli/files.py", "src/xian_wallet_cli/state.py"]},
+        {"id": "signing", "name": "Proposals and signing", "tags": ["wallet", "security"],
+         "summary": "Transaction proposals, approvals, nonce reservations and the transaction journal.",
+         "purpose": "Binds each approval to the transaction the owner reviewed and tracks it through finality.",
+         "paths": ["src/xian_wallet_cli/domain.py", "src/xian_wallet_cli/activity.py",
+                   "src/xian_wallet_cli/permissions.py"]},
+        {"id": "integrations", "name": "Agent and wallet integrations", "tags": ["wallet", "automation"],
+         "summary": "Agent requests over a local socket, Telegram review and WalletConnect sessions.",
+         "purpose": "Routes requests from outside the terminal through the wallet's approval and signing flow.",
+         "paths": ["src/xian_wallet_cli/agent_cli.py", "src/xian_wallet_cli/telegram.py",
+                   "src/xian_wallet_cli/walletconnect_cli.py", "src/xian_wallet_cli/walletconnect/*"]},
+        {"id": "chain", "name": "Chain and contract operations", "tags": ["wallet", "rpc", "contracts"],
+         "summary": "SDK-backed RPC, network profiles, contract calls, x402 and shielded operations.",
+         "purpose": "Lets the wallet read chain state, simulate transactions and submit signed calls.",
+         "paths": ["src/xian_wallet_cli/chain.py", "src/xian_wallet_cli/profiles.py",
+                   "src/xian_wallet_cli/chain_apps.py", "src/xian_wallet_cli/payments.py",
+                   "src/xian_wallet_cli/shielded.py"]},
+        {"id": "terminal", "name": "Terminal interface and packaging", "tags": ["wallet", "cli", "ui"],
+         "summary": "Terminal commands, transaction previews, the Textual dashboard and release tooling.",
+         "purpose": "Gives operators a terminal interface for wallet actions and approval review.",
+         "paths": ["*"]}
+      ]
+    },
+
     "xian-wallet-mobile": {
       "summary": "React Native mobile wallet.",
       "capabilities": [
