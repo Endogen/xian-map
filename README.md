@@ -274,9 +274,13 @@ change, and the tests tell it when it is done.
 
 ## Publishing to GitHub Pages
 
-The live site is the `gh-pages` branch of this repo. GitHub cannot build it,
-because the build needs the sibling repos and their local graphify graphs, so
-it is published from a machine that has the workspace:
+After tests pass on a push to `main`, GitHub Actions checks out the workspace
+repos, refreshes their structural Graphify graphs, and publishes the map via
+`gh-pages`. The `pages-build` environment uses `XIAN_BRIDGE_APP_CLIENT_ID`
+and the `XIAN_BRIDGE_APP_PRIVATE_KEY` secret to obtain a short-lived,
+read-only token for `xian-bridge`.
+
+To publish manually from a local workspace, use:
 
 ```bash
 cd xian-map
